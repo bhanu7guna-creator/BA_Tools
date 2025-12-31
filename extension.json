@@ -1,0 +1,14 @@
+{
+    "builtin": "False",
+    "default_enabled": "True",
+    "type": "extension",
+    "rocket_mode_compatible": "False",
+    "name": "BA_Tools",
+    "description": "Extensions for PyRevit",
+    "author": "Bhanu Prakash A",
+    "author_profile": "",
+    "url": "https://github.com/bhanu7guna-creator/BA_Tools.git",
+    "website": "",
+    "image": "",
+    "dependencies": []
+}
