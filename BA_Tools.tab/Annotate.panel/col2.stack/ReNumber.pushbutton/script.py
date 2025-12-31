@@ -167,23 +167,42 @@ def set_number(target_element, new_number):
         mark_param.Set(new_number)
 
 
-def mark_element_as_renumbered(target_view, room):
+def mark_element_as_renumbered(target_view, element):
     """Override element VG to transparent and halftone.
 
     Intended to mark processed renumbered elements visually.
     """
-    ogs = DB.OverrideGraphicSettings()
-    ogs.SetHalftone(True)
-    ogs.SetSurfaceTransparency(100)
-    target_view.SetElementOverrides(room.Id, ogs)
+    # For viewports, apply override on the sheet they belong to
+    if isinstance(element, DB.Viewport):
+        sheet = doc.GetElement(element.SheetId)
+        if sheet:
+            ogs = DB.OverrideGraphicSettings()
+            ogs.SetHalftone(True)
+            ogs.SetSurfaceTransparency(100)
+            sheet.SetElementOverrides(element.Id, ogs)
+    else:
+        # For other elements, use the target view
+        ogs = DB.OverrideGraphicSettings()
+        ogs.SetHalftone(True)
+        ogs.SetSurfaceTransparency(100)
+        target_view.SetElementOverrides(element.Id, ogs)
 
 
 def unmark_renamed_elements(target_views, marked_element_ids):
     """Rest element VG to default."""
     for marked_element_id in marked_element_ids:
+        element = doc.GetElement(marked_element_id)
         ogs = DB.OverrideGraphicSettings()
-        for target_view in target_views:
-            target_view.SetElementOverrides(marked_element_id, ogs)
+        
+        # For viewports, clear override on their sheet
+        if isinstance(element, DB.Viewport):
+            sheet = doc.GetElement(element.SheetId)
+            if sheet:
+                sheet.SetElementOverrides(marked_element_id, ogs)
+        else:
+            # For other elements, clear on all target views
+            for target_view in target_views:
+                target_view.SetElementOverrides(marked_element_id, ogs)
 
 
 def get_elements_dict(views, builtin_cat, current_sheet_only=False):
