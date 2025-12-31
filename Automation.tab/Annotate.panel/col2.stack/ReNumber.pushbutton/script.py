@@ -1,0 +1,489 @@
+"""ReNumber numbered elements in order of selection - Per Sheet/View."""
+#pylint: disable=import-error,invalid-name,broad-except
+from collections import OrderedDict
+
+from pyrevit.coreutils import applocales
+from pyrevit import revit, DB
+from pyrevit import coreutils
+from pyrevit import forms
+from pyrevit import script
+
+doc = revit.doc
+uidoc = revit.uidoc
+logger = script.get_logger()
+output = script.get_output()
+
+
+# shortcut for DB.BuiltInCategory
+BIC = DB.BuiltInCategory
+
+
+class RNOpts(object):
+    """Renumber tool option"""
+    def __init__(self, cat, by_bicat=None):
+        self.bicat = cat
+        self._cat = revit.query.get_category(self.bicat)
+        self.by_bicat = by_bicat
+        self._by_cat = revit.query.get_category(self.by_bicat)
+
+    @property
+    def name(self):
+        """Renumber option name derived from option categories."""
+        if self.by_bicat:
+            applocale = applocales.get_host_applocale()
+            if 'english' in applocale.lang_name.lower():
+                return '{} by {}'.format(self._cat.Name, self._by_cat.Name)
+            return '{} <- {}'.format(self._cat.Name, self._by_cat.Name)
+        return self._cat.Name
+
+def get_open_views():
+    """
+    Collect open views in the current document.
+    Returns:
+        list: A list of open views in the current document.
+    """
+    ui_views = uidoc.GetOpenUIViews()
+    views = []
+    for ui_View in ui_views:
+        viewId = ui_View.ViewId
+        view = doc.GetElement(viewId)
+        if view.ViewType in (DB.ViewType.FloorPlan, DB.ViewType.CeilingPlan):
+            views.append(view)
+    return views
+
+
+def toggle_element_selection_handles(target_views, bicat, state=True):
+    """Toggle handles for spatial elements"""
+    with revit.Transaction("Toggle handles"):
+        rr_cat = revit.query.get_subcategory(bicat, 'Reference')
+        rr_int = revit.query.get_subcategory(bicat, 'Interior Fill')
+        # if view has template, toggle temp VG overrides
+        if state:
+            for target_view in target_views:
+                target_view.EnableTemporaryViewPropertiesMode(target_view.Id)
+                try:
+                    rr_cat.Visible[target_view] = state
+                except Exception as vex:
+                    logger.debug(
+                        'Failed changing category visibility for \"%s\" '
+                        'to \"%s\" on view \"%s\" | %s',
+                        bicat,
+                        state,
+                        target_view.Name,
+                        str(vex)
+                        )
+                try:
+                    rr_int.Visible[target_view] = state
+                except Exception as vex:
+                    logger.debug(
+                        'Failed changing interior fill visibility for \"%s\" '
+                        'to \"%s\" on view \"%s\" | %s',
+                        bicat,
+                        state,
+                        target_view.Name,
+                        str(vex)
+                        )
+            # disable the temp VG overrides after making changes to categories
+        if not state:
+            for target_view in target_views:
+                target_view.DisableTemporaryViewMode(
+                    DB.TemporaryViewMode.TemporaryViewProperties)
+                try:
+                    rr_int.Visible[target_view] = state
+                except Exception as vex:
+                    logger.debug(
+                        'Failed changing interior fill visibility for \"%s\" '
+                        'to \"%s\" on view \"%s\" | %s',
+                        bicat,
+                        state,
+                        target_view.Name,
+                        str(vex)
+                        )
+
+
+class EasilySelectableElements(object):
+    """Toggle spatial element handles for easy selection."""
+    def __init__(self, target_views, bicat):
+        self.supported_categories = [
+            BIC.OST_Rooms,
+            BIC.OST_Areas,
+            BIC.OST_MEPSpaces
+            ]
+        self.target_views = target_views
+        self.bicat = bicat
+
+    def __enter__(self):
+        if self.bicat in self.supported_categories:
+            toggle_element_selection_handles(
+                self.target_views,
+                self.bicat
+                )
+        return self
+
+    def __exit__(self, exception, exception_value, traceback):
+        if self.bicat in self.supported_categories:
+            toggle_element_selection_handles(
+                self.target_views,
+                self.bicat,
+                state=False
+                )
+
+
+def increment(number):
+    """Increment given item number by one."""
+    return coreutils.increment_str(number, expand=True)
+
+
+def get_number(target_element):
+    """Get target elemnet number (might be from Number or other fields)"""
+    if hasattr(target_element, "Number"):
+        return target_element.Number
+
+    # determine target parameter
+    mark_param = target_element.Parameter[DB.BuiltInParameter.ALL_MODEL_MARK]
+    if isinstance(target_element, (DB.Level, DB.Grid)):
+        mark_param = target_element.Parameter[DB.BuiltInParameter.DATUM_TEXT]
+    if isinstance(target_element, DB.Viewport):
+        mark_param = target_element.Parameter[DB.BuiltInParameter.VIEWPORT_DETAIL_NUMBER]
+    # get now
+    if mark_param:
+        return mark_param.AsString()
+
+
+def set_number(target_element, new_number):
+    """Set target elemnet number (might be at Number or other fields)"""
+    if hasattr(target_element, "Number"):
+        target_element.Number = new_number
+        return
+
+    # determine target parameter
+    mark_param = target_element.Parameter[DB.BuiltInParameter.ALL_MODEL_MARK]
+    if isinstance(target_element, (DB.Level, DB.Grid)):
+        mark_param = target_element.Parameter[DB.BuiltInParameter.DATUM_TEXT]
+    if isinstance(target_element, DB.Viewport):
+        mark_param = target_element.Parameter[DB.BuiltInParameter.VIEWPORT_DETAIL_NUMBER]
+    # set now 
+    if mark_param:
+        mark_param.Set(new_number)
+
+
+def mark_element_as_renumbered(target_view, room):
+    """Override element VG to transparent and halftone.
+
+    Intended to mark processed renumbered elements visually.
+    """
+    ogs = DB.OverrideGraphicSettings()
+    ogs.SetHalftone(True)
+    ogs.SetSurfaceTransparency(100)
+    target_view.SetElementOverrides(room.Id, ogs)
+
+
+def unmark_renamed_elements(target_views, marked_element_ids):
+    """Rest element VG to default."""
+    for marked_element_id in marked_element_ids:
+        ogs = DB.OverrideGraphicSettings()
+        for target_view in target_views:
+            target_view.SetElementOverrides(marked_element_id, ogs)
+
+
+def get_elements_dict(views, builtin_cat, current_sheet_only=False):
+    """Collect number:id information about target elements.
+    
+    Args:
+        views: List of views to consider
+        builtin_cat: Category of elements to collect
+        current_sheet_only: If True, only collect from current active view/sheet
+    """
+    # For viewports, scope to current sheet only
+    if BIC.OST_Viewports == builtin_cat:
+        for view in views:
+            if isinstance(view, DB.ViewSheet):
+                # Only collect viewports on THIS sheet
+                return {get_number(revit.doc.GetElement(vpid)):vpid
+                    for vpid in view.GetAllViewports()}
+        # If active view is a sheet, scope to that sheet
+        if isinstance(revit.active_view, DB.ViewSheet):
+            return {get_number(revit.doc.GetElement(vpid)):vpid
+                for vpid in revit.active_view.GetAllViewports()}
+
+    # For other elements, decide based on current_sheet_only flag
+    if current_sheet_only and isinstance(revit.active_view, DB.ViewSheet):
+        # Only collect elements visible on current sheet
+        elements_dict = {}
+        for vpid in revit.active_view.GetAllViewports():
+            vp = revit.doc.GetElement(vpid)
+            vp_view = revit.doc.GetElement(vp.ViewId)
+            # Get elements from this viewport's view
+            view_elements = DB.FilteredElementCollector(doc, vp_view.Id)\
+                .OfCategory(builtin_cat)\
+                .WhereElementIsNotElementType()\
+                .ToElements()
+            for elem in view_elements:
+                number = get_number(elem)
+                if number:
+                    elements_dict[number] = elem.Id
+        return elements_dict
+    
+    elif current_sheet_only:
+        # For non-sheet views, collect only from active view
+        view_elements = DB.FilteredElementCollector(doc, revit.active_view.Id)\
+            .OfCategory(builtin_cat)\
+            .WhereElementIsNotElementType()\
+            .ToElements()
+        return {get_number(x):x.Id for x in view_elements if get_number(x)}
+    
+    else:
+        # Original behavior - collect from entire project
+        all_elements = revit.query.get_elements_by_categories([builtin_cat])
+        return {get_number(x):x.Id for x in all_elements}
+
+
+def find_replacement_number(existing_number, elements_dict):
+    """Find an appropriate replacement number for conflicting numbers."""
+    replaced_number = increment(existing_number)
+    while replaced_number in elements_dict:
+        replaced_number = increment(replaced_number)
+    return replaced_number
+
+
+def renumber_element(target_element, new_number, elements_dict, check_scope_only=False):
+    """Renumber given element.
+    
+    Args:
+        target_element: Element to renumber
+        new_number: New number to assign
+        elements_dict: Dictionary of existing numbers in current scope
+        check_scope_only: If True, only check conflicts within current scope
+    """
+    # check if elements with same number exists IN CURRENT SCOPE
+    if new_number in elements_dict:
+        element_with_same_number = \
+            revit.doc.GetElement(elements_dict[new_number])
+        # make sure its not the same as target_element
+        if element_with_same_number \
+                and element_with_same_number.Id != target_element.Id:
+            # replace its number with something else that is not conflicting
+            current_number = get_number(element_with_same_number)
+            replaced_number = \
+                find_replacement_number(current_number, elements_dict)
+            set_number(element_with_same_number, replaced_number)
+            # record the element with its new number for later renumber jobs
+            elements_dict[replaced_number] = element_with_same_number.Id
+
+    # check if target element is already listed
+    # remove the existing number entry since we are renumbering
+    existing_number = get_number(target_element)
+    if existing_number in elements_dict:
+        elements_dict.pop(existing_number)
+
+    # renumber the given element
+    logger.debug('applying %s', new_number)
+    set_number(target_element, new_number)
+    elements_dict[new_number] = target_element.Id
+    # mark the element visually to renumbered
+    mark_element_as_renumbered(revit.active_view, target_element)
+
+
+def ask_for_starting_number(category_name):
+    """Ask user for starting number."""
+    return forms.ask_for_string(
+        prompt="Enter starting number",
+        title="ReNumber {}".format(category_name)
+        )
+
+
+def _unmark_collected(category_name, renumbered_element_ids):
+    # unmark all renumbered elements
+    with revit.Transaction("Unmark {}".format(category_name)):
+        unmark_renamed_elements(get_open_views(), renumbered_element_ids)
+
+
+def pick_and_renumber(rnopts, starting_index, scope_to_view=True):
+    """Main renumbering routine for elements of given category.
+    
+    Args:
+        rnopts: Renumber options
+        starting_index: Starting number
+        scope_to_view: If True, only check conflicts within current view/sheet
+    """
+    # all actions under one transaction
+    open_views = get_open_views()
+    with revit.TransactionGroup("Renumber {}".format(rnopts.name)):
+        # make sure target elements are easily selectable
+        with EasilySelectableElements(open_views, rnopts.bicat):
+            index = starting_index
+            # collect existing elements number:id data
+            # IMPORTANT: scope_to_view=True means we only check current view/sheet
+            existing_elements_data = get_elements_dict(
+                open_views, 
+                rnopts.bicat,
+                current_sheet_only=scope_to_view
+            )
+            # list to collect renumbered elements
+            renumbered_element_ids = []
+            # ask user to pick elements and renumber them
+            for picked_element in revit.get_picked_elements_by_category(
+                    rnopts.bicat,
+                    message="Select {} in order".format(rnopts.name.lower())):
+                # need nested transactions to push revit to update view
+                # on each renumber task
+                with revit.Transaction("Renumber {}".format(rnopts.name)):
+                    # actual renumber task - check_scope_only for current view
+                    renumber_element(
+                        picked_element,
+                        index, 
+                        existing_elements_data,
+                        check_scope_only=scope_to_view
+                    )
+                    # record the renumbered element
+                    renumbered_element_ids.append(picked_element.Id)
+                index = increment(index)
+            # unmark all renumbered elements
+            _unmark_collected(rnopts.name, renumbered_element_ids)
+
+
+def door_by_room_renumber(rnopts, scope_to_view=True):
+    """Main renumbering routine for elements of given categories."""
+    # all actions under one transaction
+    open_views = get_open_views()
+    with revit.TransactionGroup("Renumber Doors by Room"):
+        # collect existing elements number:id data
+        existing_doors_data = get_elements_dict(
+            open_views, 
+            rnopts.bicat,
+            current_sheet_only=scope_to_view
+        )
+        renumbered_door_ids = []
+        # make sure target elements are easily selectable
+        with EasilySelectableElements(open_views, rnopts.bicat):
+            with EasilySelectableElements(open_views, rnopts.by_bicat):
+                while True:
+                    # pick door
+                    picked_door = \
+                        revit.pick_element_by_category(rnopts.bicat,
+                                                       message="Select a door")
+                    if not picked_door:
+                        # user cancelled
+                        return _unmark_collected("Doors", renumbered_door_ids)
+                    # grab the associated rooms
+                    from_room, to_room = revit.query.get_door_rooms(picked_door)
+
+                    # if more than one option for room, ask to pick
+                    if all([from_room, to_room]) or not any([from_room, to_room]):
+                        # pick room
+                        picked_room = \
+                            revit.pick_element_by_category(rnopts.by_bicat,
+                                                           message="Select a room")
+                        if not picked_room:
+                            # user cancelled
+                            return _unmark_collected("Rooms", renumbered_door_ids)
+                    else:
+                        picked_room = from_room or to_room
+
+                    # get data on doors associated with picked room
+                    room_doors = revit.query.get_doors(room_id=picked_room.Id)
+                    room_number = get_number(picked_room)
+                    with revit.Transaction("Renumber Door"):
+                        door_count = len(room_doors)
+                        if door_count == 1:
+                            # match door number to room number
+                            renumber_element(
+                                picked_door,
+                                room_number,
+                                existing_doors_data,
+                                check_scope_only=scope_to_view
+                            )
+                            renumbered_door_ids.append(picked_door.Id)
+                        elif door_count > 1:
+                            # match door number to extended room number e.g. 100A
+                            # check numbers of existing room doors and pick the next
+                            room_door_numbers = [get_number(x) for x in room_doors]
+                            new_number = coreutils.extend_counter(room_number)
+                            while new_number in room_door_numbers:
+                                new_number = increment(new_number)
+                            renumber_element(
+                                picked_door,
+                                new_number,
+                                existing_doors_data,
+                                check_scope_only=scope_to_view
+                            )
+                            renumbered_door_ids.append(picked_door.Id)
+
+
+# Main execution
+if isinstance(revit.active_view, (DB.View3D, DB.ViewPlan, DB.ViewSection, DB.ViewSheet)):
+    # prepare options
+    if not isinstance(revit.active_view, DB.ViewSheet):
+        renumber_options = [
+            RNOpts(cat=BIC.OST_Rooms),
+            RNOpts(cat=BIC.OST_MEPSpaces),
+            RNOpts(cat=BIC.OST_Doors),
+            RNOpts(cat=BIC.OST_Doors,
+                   by_bicat=BIC.OST_Rooms),
+            RNOpts(cat=BIC.OST_Walls),
+            RNOpts(cat=BIC.OST_Windows),
+            RNOpts(cat=BIC.OST_Parking),
+            RNOpts(cat=BIC.OST_Levels),
+            RNOpts(cat=BIC.OST_Grids),
+        ]
+        # add areas if active view is an Area Plan
+        if revit.active_view.ViewType == DB.ViewType.AreaPlan:
+            renumber_options.insert(1, RNOpts(cat=BIC.OST_Areas))
+    else:
+        renumber_options = [RNOpts(cat=BIC.OST_Viewports)]
+
+
+    options_dict = OrderedDict()
+    for renumber_option in renumber_options:
+        options_dict[renumber_option.name] = renumber_option
+    
+    selected_option_name = \
+        forms.CommandSwitchWindow.show(
+            options_dict,
+            message='Pick element type to renumber:',
+            width=400
+        )
+
+    if selected_option_name:
+        selected_option = options_dict[selected_option_name]
+        
+        # Ask user for scope preference
+        is_sheet_view = isinstance(revit.active_view, DB.ViewSheet)
+        scope_message = "Current sheet only" if is_sheet_view else "Current view only"
+        
+        # For viewports, always scope to current sheet
+        if selected_option.bicat == BIC.OST_Viewports:
+            scope_to_current_view = True
+        else:
+            # Ask user if they want to scope to current view/sheet
+            scope_to_current_view = forms.alert(
+                "Renumber scope:\n\n"
+                "YES = {} (recommended)\n"
+                "NO = Entire project\n\n"
+                "Scoping to current view prevents affecting elements on other sheets/views.".format(
+                    scope_message
+                ),
+                title="Renumber Scope",
+                yes=True,
+                no=True
+            )
+        
+        if selected_option.by_bicat:
+            # if renumber doors by room
+            if selected_option.bicat == BIC.OST_Doors \
+                    and selected_option.by_bicat == BIC.OST_Rooms:
+                with forms.WarningBar(
+                    title='Pick Pairs of Door and Room. ESCAPE to end.'):
+                    door_by_room_renumber(selected_option, scope_to_view=scope_to_current_view)
+        else:
+            starting_number = ask_for_starting_number(selected_option.name)
+            if starting_number:
+                scope_info = scope_message if scope_to_current_view else "Entire Project"
+                with forms.WarningBar(
+                    title='Pick {} One by One. ESCAPE to end. [Scope: {}]'.format(
+                        selected_option.name, scope_info)):
+                    pick_and_renumber(
+                        selected_option, 
+                        starting_number,
+                        scope_to_view=scope_to_current_view
+                    )
