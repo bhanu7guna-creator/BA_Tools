@@ -99,7 +99,7 @@ class RevisionManager(Form):
     
     def InitializeUI(self):
         # Form properties
-        self.Text = "REVISION MANAGER v2.4.0"
+        self.Text = "REVISION MANAGER v2.5.0"
         self.Width = 1200
         self.Height = 750
         self.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen
@@ -116,6 +116,7 @@ class RevisionManager(Form):
         # Colors
         self.bg_panel = Color.FromArgb(30, 30, 40)
         self.accent_color = Color.FromArgb(74, 144, 226)
+        self.remove_color = Color.FromArgb(200, 60, 60)
         self.text_color = Color.FromArgb(220, 220, 220)
         self.text_muted = Color.FromArgb(140, 140, 150)
         
@@ -137,7 +138,7 @@ class RevisionManager(Form):
         header_panel.Controls.Add(title)
         
         subtitle = Label()
-        subtitle.Text = "ASSIGN REVISIONS TO SHEETS"
+        subtitle.Text = "ASSIGN OR REMOVE REVISIONS FROM SHEETS"
         subtitle.Font = Font("Consolas", 8, FontStyle.Regular)
         subtitle.ForeColor = self.text_muted
         subtitle.Location = Point(20, 45)
@@ -368,16 +369,29 @@ class RevisionManager(Form):
         
         # Apply Button
         self.apply_btn = Button()
-        self.apply_btn.Text = "APPLY REVISIONS TO SHEETS"
+        self.apply_btn.Text = "APPLY REVISIONS"
         self.apply_btn.Location = Point(960, y_offset + 10)
-        self.apply_btn.Size = Size(200, 80)
-        self.apply_btn.Font = Font("Consolas", 10, FontStyle.Bold)
+        self.apply_btn.Size = Size(200, 38)
+        self.apply_btn.Font = Font("Consolas", 9, FontStyle.Bold)
         self.apply_btn.BackColor = self.accent_color
         self.apply_btn.ForeColor = Color.White
         self.apply_btn.FlatStyle = FlatStyle.Flat
         self.apply_btn.FlatAppearance.BorderSize = 0
         self.apply_btn.Click += self.ApplyRevisions
         self.Controls.Add(self.apply_btn)
+        
+        # Remove Button
+        self.remove_btn = Button()
+        self.remove_btn.Text = "REMOVE REVISIONS"
+        self.remove_btn.Location = Point(960, y_offset + 52)
+        self.remove_btn.Size = Size(200, 38)
+        self.remove_btn.Font = Font("Consolas", 9, FontStyle.Bold)
+        self.remove_btn.BackColor = self.remove_color
+        self.remove_btn.ForeColor = Color.White
+        self.remove_btn.FlatStyle = FlatStyle.Flat
+        self.remove_btn.FlatAppearance.BorderSize = 0
+        self.remove_btn.Click += self.RemoveRevisions
+        self.Controls.Add(self.remove_btn)
     
     def PopulateRevisionList(self):
         """Populate revision list based on filter"""
@@ -434,7 +448,10 @@ class RevisionManager(Form):
     
     def UpdateRevisionCount(self, sender, args):
         if sender:
-            System.Windows.Forms.Timer().Tick += lambda s, e: self.DoUpdateRevCount(s, e)
+            timer = System.Windows.Forms.Timer()
+            timer.Interval = 10
+            timer.Tick += lambda s, e: self.DoUpdateRevCount(s, e)
+            timer.Start()
         else:
             self.DoUpdateRevCount(None, None)
     
@@ -445,7 +462,10 @@ class RevisionManager(Form):
         self.revision_count_label.Text = "Selected: {} revisions".format(count)
     
     def UpdateSheetCount(self, sender, args):
-        System.Windows.Forms.Timer().Tick += lambda s, e: self.DoUpdateSheetCount(s, e)
+        timer = System.Windows.Forms.Timer()
+        timer.Interval = 10
+        timer.Tick += lambda s, e: self.DoUpdateSheetCount(s, e)
+        timer.Start()
     
     def DoUpdateSheetCount(self, sender, args):
         sender.Stop()
@@ -454,7 +474,10 @@ class RevisionManager(Form):
     
     def UpdatePreview(self, sender, args):
         """Update preview when selection changes"""
-        System.Windows.Forms.Timer().Tick += lambda s, e: self.DoUpdatePreview(s, e)
+        timer = System.Windows.Forms.Timer()
+        timer.Interval = 10
+        timer.Tick += lambda s, e: self.DoUpdatePreview(s, e)
+        timer.Start()
     
     def DoUpdatePreview(self, sender, args):
         sender.Stop()
@@ -586,7 +609,122 @@ class RevisionManager(Form):
         
         self.result = True
         self.apply_btn.Enabled = True
-        self.apply_btn.Text = "APPLY REVISIONS TO SHEETS"
+        self.apply_btn.Text = "APPLY REVISIONS"
+    
+    def RemoveRevisions(self, sender, args):
+        """Remove selected revisions from selected sheets"""
+        # Get selected revisions
+        selected_rev_indices = []
+        for i in range(self.revision_list.CheckedItems.Count):
+            selected_rev_indices.append(self.revision_list.CheckedIndices[i])
+        
+        if len(selected_rev_indices) == 0:
+            forms.alert("Please select at least one revision to remove", title="Validation Error")
+            return
+        
+        # Get selected sheets
+        selected_sheet_indices = []
+        for i in range(self.sheet_list.CheckedItems.Count):
+            selected_sheet_indices.append(self.sheet_list.CheckedIndices[i])
+        
+        if len(selected_sheet_indices) == 0:
+            forms.alert("Please select at least one sheet", title="Validation Error")
+            return
+        
+        # Map indices to actual objects
+        display_revisions = [r for r in self.revisions if not self.unissued_radio.Checked or not r.Issued]
+        self.selected_revisions = [display_revisions[i] for i in selected_rev_indices]
+        
+        # For sheets, need to map from filtered list back to original
+        filter_text = self.sheet_filter_textbox.Text.lower()
+        filtered_sheets = []
+        for sheet in self.sheets:
+            display_text = "{} - {}".format(sheet.SheetNumber, sheet.Name)
+            if not filter_text or filter_text in display_text.lower():
+                filtered_sheets.append(sheet)
+        
+        self.selected_sheets = [filtered_sheets[i] for i in selected_sheet_indices]
+        
+        # Confirm
+        confirm_msg = "Remove {} revision(s) from {} sheet(s)?\n\nThis will only remove the selected revisions.\nContinue?".format(
+            len(self.selected_revisions),
+            len(self.selected_sheets)
+        )
+        
+        if not forms.alert(confirm_msg, yes=True, no=True):
+            return
+        
+        # Update UI
+        self.remove_btn.Enabled = False
+        self.remove_btn.Text = "REMOVING..."
+        self.status_text.Clear()
+        
+        self.AddLog("Starting revision removal...")
+        self.AddLog("Revisions: {}".format(len(self.selected_revisions)))
+        self.AddLog("Sheets: {}".format(len(self.selected_sheets)))
+        self.AddLog("")
+        
+        success_count = 0
+        error_count = 0
+        skipped_count = 0
+        
+        # Get IDs of revisions to remove
+        revisions_to_remove = [rev.Id for rev in self.selected_revisions]
+        
+        with revit.Transaction("Remove Revisions from Sheets"):
+            for sheet in self.selected_sheets:
+                try:
+                    # Get existing revisions
+                    rev_ids = list(sheet.GetAdditionalRevisionIds())
+                    original_count = len(rev_ids)
+                    
+                    # Remove selected revisions
+                    rev_ids = [rid for rid in rev_ids if rid not in revisions_to_remove]
+                    
+                    removed_count = original_count - len(rev_ids)
+                    
+                    if removed_count == 0:
+                        skipped_count += 1
+                        self.AddLog("○ {} - {} (no revisions to remove)".format(
+                            sheet.SheetNumber, 
+                            sheet.Name
+                        ))
+                    else:
+                        # Set updated revisions
+                        sheet.SetAdditionalRevisionIds(DotNetList[ElementId](rev_ids))
+                        
+                        success_count += 1
+                        self.AddLog("✓ {} - {} ({} removed)".format(
+                            sheet.SheetNumber,
+                            sheet.Name,
+                            removed_count
+                        ))
+                    
+                except Exception as e:
+                    error_count += 1
+                    self.AddLog("✗ {} - {}: {}".format(
+                        sheet.SheetNumber,
+                        sheet.Name,
+                        str(e)
+                    ))
+        
+        # Summary
+        self.AddLog("")
+        self.AddLog("=== COMPLETE ===")
+        self.AddLog("Removed: {}".format(success_count))
+        self.AddLog("Skipped: {}".format(skipped_count))
+        self.AddLog("Errors: {}".format(error_count))
+        
+        msg = "Revision removal complete!\n\n"
+        msg += "Removed: {}\n".format(success_count)
+        msg += "Skipped: {}\n".format(skipped_count)
+        msg += "Errors: {}".format(error_count)
+        
+        forms.alert(msg, title="Complete")
+        
+        self.result = True
+        self.remove_btn.Enabled = True
+        self.remove_btn.Text = "REMOVE REVISIONS"
 
 
 # ==============================================================================
@@ -597,6 +735,6 @@ form = RevisionManager(all_revisions, all_sheets, doc)
 form.ShowDialog()
 
 if form.result:
-    output.print_md("### ✅ Revisions Applied Successfully")
+    output.print_md("### ✅ Operation Completed Successfully")
 else:
     output.print_md("### Operation Cancelled")
