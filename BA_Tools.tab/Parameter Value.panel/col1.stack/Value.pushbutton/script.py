@@ -1,343 +1,493 @@
-
+# -*- coding: utf-8 -*-
 """
-Set Mark Values for Elements
-Select category, view, filter by type, and assign mark values
+Set Mark Values - Modern UI Enhanced
 """
 __title__ = 'Set Mark\nValues'
-__doc__ = 'Assign mark values to filtered elements by type in a selected view'
-from Autodesk.Revit.DB import *
-from pyrevit import revit, forms, script
-doc = revit.doc
-uidoc = revit.uidoc
-# ==============================================================================
-# STEP 1: SELECT CATEGORY
-# ==============================================================================
-category_options = [
-    'Walls',
-    'Doors',
-    'Windows',
-    'Structural Framing',
-    'Structural Columns',
-    'Floors',
-    'Furniture',
-    'Generic Models'
-]
-category_map = {
-    'Walls': BuiltInCategory.OST_Walls,
-    'Doors': BuiltInCategory.OST_Doors,
-    'Windows': BuiltInCategory.OST_Windows,
-    'Structural Framing': BuiltInCategory.OST_StructuralFraming,
-    'Structural Columns': BuiltInCategory.OST_StructuralColumns,
-    'Floors': BuiltInCategory.OST_Floors,
-    'Furniture': BuiltInCategory.OST_Furniture,
-    'Generic Models': BuiltInCategory.OST_GenericModel
-}
-selected_category_name = forms.SelectFromList.show(
-    category_options,
-    title='Step 1: Select Category',
-    button_name='Select'
-)
-if not selected_category_name:
-    script.exit()
-selected_category = category_map[selected_category_name]
-# ==============================================================================
-# STEP 2: SELECT VIEW
-# ==============================================================================
-all_views = FilteredElementCollector(doc)\
-    .OfClass(View)\
-    .WhereElementIsNotElementType()\
-    .ToElements()
-valid_views = [v for v in all_views if not v.IsTemplate and v.CanBePrinted]
-if not valid_views:
-    forms.alert('No valid views found', exitscript=True)
-view_dict = {}
-for view in valid_views:
-    view_dict[view.Name] = view
-selected_view_name = forms.SelectFromList.show(
-    sorted(view_dict.keys()),
-    title='Step 2: Select View',
-    button_name='Select'
-)
-if not selected_view_name:
-    script.exit()
-selected_view = view_dict[selected_view_name]
-# ==============================================================================
-# STEP 3: COLLECT ALL ELEMENTS IN VIEW
-# ==============================================================================
-all_elements = FilteredElementCollector(doc, selected_view.Id)\
-    .OfCategory(selected_category)\
-    .WhereElementIsNotElementType()\
-    .ToElements()
-if not all_elements:
-    forms.alert(
-        'No {} found in view "{}"'.format(selected_category_name, selected_view.Name),
-        exitscript=True
-    )
-print('Found {} {} in view "{}"'.format(
-    len(all_elements), 
-    selected_category_name, 
-    selected_view.Name
-))
-# ==============================================================================
-# STEP 4: GROUP ELEMENTS BY TYPE
-# ==============================================================================
-type_dict = {}
-for elem in all_elements:
-    type_id = elem.GetTypeId()
-    elem_type = doc.GetElement(type_id)
-    
-    if elem_type:
-        type_name = elem_type.get_Parameter(BuiltInParameter.SYMBOL_NAME_PARAM).AsString()
-        
-        if type_name not in type_dict:
-            type_dict[type_name] = []
-        
-        type_dict[type_name].append(elem)
-# ==============================================================================
-# STEP 5: SELECT TYPE TO FILTER
-# ==============================================================================
-type_options = []
-for type_name, elems in sorted(type_dict.items()):
-    type_options.append('{} ({} elements)'.format(type_name, len(elems)))
-selected_type_option = forms.SelectFromList.show(
-    type_options,
-    title='Step 3: Select Element Type',
-    button_name='Select',
-    multiselect=False
-)
-if not selected_type_option:
-    script.exit()
-# Extract type name from selection (remove count)
-selected_type_name = selected_type_option.split(' (')[0]
-# Get filtered elements
-filtered_elements = type_dict[selected_type_name]
-print('\nFiltered to {} elements of type "{}"'.format(
-    len(filtered_elements), 
-    selected_type_name
-))
-# ==============================================================================
-# STEP 6: SHOW CURRENT MARK VALUES
-# ==============================================================================
-print('\nCurrent Mark Values:')
-print('-' * 50)
-for i, elem in enumerate(filtered_elements, 1):
-    mark_param = elem.get_Parameter(BuiltInParameter.ALL_MODEL_MARK)
-    current_mark = ''
-    
-    if mark_param and mark_param.HasValue:
-        current_mark = mark_param.AsString() or ''
-    
-    print('{}. Element ID: {} | Current Mark: "{}"'.format(
-        i, 
-        elem.Id, 
-        current_mark if current_mark else '(Empty)'
-    ))
-print('-' * 50)
-# ==============================================================================
-# STEP 7: ASK FOR MARK VALUE INPUT METHOD
-# ==============================================================================
-input_method = forms.CommandSwitchWindow.show(
-    [
-        'Single Value for All',
-        'Sequential Numbers',
-        'Sequential with Prefix',
-        'Comma-Separated Values'
-    ],
-    message='Step 4: Choose how to assign mark values:'
-)
-if not input_method:
-    script.exit()
-# ==============================================================================
-# STEP 8: GET MARK VALUES FROM USER
-# ==============================================================================
-new_marks = []
-if input_method == 'Single Value for All':
-    # Ask for one value to apply to all elements
-    value = forms.ask_for_string(
-        prompt='Enter mark value for all {} elements:'.format(len(filtered_elements)),
-        title='Enter Mark Value',
-        default=''
-    )
-    
-    if value is None:
-        script.exit()
-    
-    new_marks = [value] * len(filtered_elements)
-elif input_method == 'Sequential Numbers':
-    # Ask for starting number
-    start_value = forms.ask_for_string(
-        prompt='Enter starting number:',
-        title='Starting Number',
-        default='1'
-    )
-    
-    if not start_value:
-        script.exit()
-    
-    try:
-        start_num = int(start_value)
-        new_marks = [str(start_num + i) for i in range(len(filtered_elements))]
-    except:
-        forms.alert('Invalid number entered', exitscript=True)
-elif input_method == 'Sequential with Prefix':
-    # Ask for prefix
-    prefix = forms.ask_for_string(
-        prompt='Enter prefix (e.g., W, WALL, A):',
-        title='Enter Prefix',
-        default=''
-    )
-    
-    if prefix is None:
-        script.exit()
-    
-    # Ask for starting number
-    start_value = forms.ask_for_string(
-        prompt='Enter starting number:',
-        title='Starting Number',
-        default='1'
-    )
-    
-    if not start_value:
-        script.exit()
-    
-    try:
-        start_num = int(start_value)
-        new_marks = ['{}-{}'.format(prefix, start_num + i) for i in range(len(filtered_elements))]
-    except:
-        forms.alert('Invalid number entered', exitscript=True)
-elif input_method == 'Comma-Separated Values':
-    # Show info and ask for comma-separated values
-    prompt_text = 'Enter {} mark values separated by commas.\n\n'.format(len(filtered_elements))
-    prompt_text += 'Example: W1, W2, W3, W4\n\n'
-    prompt_text += 'Elements to be marked:\n'
-    
-    for i in range(min(5, len(filtered_elements))):
-        mark_param = filtered_elements[i].get_Parameter(BuiltInParameter.ALL_MODEL_MARK)
-        current = ''
-        if mark_param and mark_param.HasValue:
-            current = mark_param.AsString() or ''
-        
-        prompt_text += '{}. ID: {} (Current: {})\n'.format(
-            i + 1,
-            filtered_elements[i].Id,
-            current if current else 'Empty'
-        )
-    
-    if len(filtered_elements) > 5:
-        prompt_text += '... and {} more'.format(len(filtered_elements) - 5)
-    
-    values_input = forms.ask_for_string(
-        prompt=prompt_text,
-        title='Enter Mark Values'
-    )
-    
-    if not values_input:
-        script.exit()
-    
-    # Parse input
-    entered_values = [v.strip() for v in values_input.split(',')]
-    
-    if len(entered_values) != len(filtered_elements):
-        forms.alert(
-            'Mismatch!\n\nYou entered {} values but there are {} elements.\n\nPlease enter exactly {} comma-separated values.'.format(
-                len(entered_values),
-                len(filtered_elements),
-                len(filtered_elements)
-            ),
-            exitscript=True
-        )
-    
-    new_marks = entered_values
-# ==============================================================================
-# STEP 9: APPLY MARK VALUES TO ELEMENTS
-# ==============================================================================
-success_count = 0
-error_count = 0
-results = []
-t = Transaction(doc, 'Set Mark Values')
-t.Start()
-try:
-    for elem, new_mark in zip(filtered_elements, new_marks):
-        try:
-            mark_param = elem.get_Parameter(BuiltInParameter.ALL_MODEL_MARK)
-            
-            if mark_param and not mark_param.IsReadOnly:
-                # Get old value for reporting
-                old_mark = ''
-                if mark_param.HasValue:
-                    old_mark = mark_param.AsString() or ''
-                
-                # Set new value
-                mark_param.Set(new_mark)
-                
-                results.append({
-                    'id': elem.Id,
-                    'old': old_mark,
-                    'new': new_mark,
-                    'success': True
-                })
-                
-                success_count += 1
-            else:
-                results.append({
-                    'id': elem.Id,
-                    'old': '',
-                    'new': new_mark,
-                    'success': False,
-                    'error': 'Read-only parameter'
-                })
-                error_count += 1
-                
-        except Exception as e:
-            results.append({
-                'id': elem.Id,
-                'old': '',
-                'new': new_mark,
-                'success': False,
-                'error': str(e)
-            })
-            error_count += 1
-    
-    t.Commit()
-    
-except Exception as e:
-    t.RollBack()
-    forms.alert('Transaction failed: {}'.format(str(e)), exitscript=True)
-# ==============================================================================
-# STEP 10: DISPLAY RESULTS
-# ==============================================================================
-print('\n' + '=' * 70)
-print('MARK VALUES UPDATED')
-print('=' * 70)
-print('Category: {}'.format(selected_category_name))
-print('View: {}'.format(selected_view.Name))
-print('Type: {}'.format(selected_type_name))
-print('-' * 70)
-print('Success: {} elements'.format(success_count))
-print('Errors: {} elements'.format(error_count))
-print('=' * 70)
-print('\nDetailed Results:')
-for i, result in enumerate(results, 1):
-    if result['success']:
-        print('{}. ID: {} | "{}" -> "{}"'.format(
-            i,
-            result['id'],
-            result['old'] if result['old'] else '(Empty)',
-            result['new']
-        ))
-    else:
-        print('{}. ID: {} | ERROR: {}'.format(
-            i,
-            result['id'],
-            result.get('error', 'Unknown error')
-        ))
-print('=' * 70)
-# Show completion dialog
-forms.alert(
-    'Mark values updated!\n\n'
-    'Success: {} elements\n'
-    'Errors: {} elements\n\n'
-    'Check output window for details.'.format(success_count, error_count),
-    title='Completed'
-)
+__doc__ = 'Assign mark values to filtered elements by type and level'
 
+import clr
+clr.AddReference("RevitAPI")
+clr.AddReference("System.Windows.Forms")
+clr.AddReference("System.Drawing")
+
+from Autodesk.Revit.DB import *
+from pyrevit import revit, script, forms
+import System
+from System.Windows.Forms import Form, Label, Button, ComboBox, Panel, TextBox, FormBorderStyle, ComboBoxStyle, FlatStyle, BorderStyle, ScrollBars
+from System.Drawing import Color, Font, FontStyle, Size, Point
+
+doc = revit.doc
+output = script.get_output()
+
+def get_all_levels():
+    levels = FilteredElementCollector(doc).OfClass(Level).WhereElementIsNotElementType().ToElements()
+    return sorted(levels, key=lambda l: l.Elevation)
+
+def get_elements_by_category_and_level(category, level):
+    all_elements = FilteredElementCollector(doc).OfCategory(category).WhereElementIsNotElementType().ToElements()
+    filtered = []
+    for elem in all_elements:
+        elem_level_id = None
+        
+        # Try multiple level parameters in order of priority
+        try:
+            level_param = elem.get_Parameter(BuiltInParameter.FAMILY_LEVEL_PARAM)
+            if level_param and level_param.HasValue:
+                elem_level_id = level_param.AsElementId()
+        except:
+            pass
+        
+        if not elem_level_id or elem_level_id == ElementId.InvalidElementId:
+            try:
+                level_param = elem.get_Parameter(BuiltInParameter.INSTANCE_REFERENCE_LEVEL_PARAM)
+                if level_param and level_param.HasValue:
+                    elem_level_id = level_param.AsElementId()
+            except:
+                pass
+        
+        if not elem_level_id or elem_level_id == ElementId.InvalidElementId:
+            try:
+                level_param = elem.get_Parameter(BuiltInParameter.SCHEDULE_LEVEL_PARAM)
+                if level_param and level_param.HasValue:
+                    elem_level_id = level_param.AsElementId()
+            except:
+                pass
+        
+        if not elem_level_id or elem_level_id == ElementId.InvalidElementId:
+            try:
+                level_param = elem.get_Parameter(BuiltInParameter.INSTANCE_SCHEDULE_ONLY_LEVEL_PARAM)
+                if level_param and level_param.HasValue:
+                    elem_level_id = level_param.AsElementId()
+            except:
+                pass
+        
+        # For walls, also check base constraint
+        if not elem_level_id or elem_level_id == ElementId.InvalidElementId:
+            try:
+                if hasattr(elem, 'WallType'):  # It's a wall
+                    level_param = elem.get_Parameter(BuiltInParameter.WALL_BASE_CONSTRAINT)
+                    if level_param and level_param.HasValue:
+                        elem_level_id = level_param.AsElementId()
+            except:
+                pass
+        
+        # Check if this element's level matches the target level
+        if elem_level_id and elem_level_id == level.Id:
+            filtered.append(elem)
+    
+    return filtered
+
+def group_by_type(elements):
+    type_dict = {}
+    for elem in elements:
+        type_id = elem.GetTypeId()
+        if type_id == ElementId.InvalidElementId:
+            continue
+        elem_type = doc.GetElement(type_id)
+        if elem_type:
+            type_param = elem_type.get_Parameter(BuiltInParameter.SYMBOL_NAME_PARAM)
+            if type_param:
+                type_name_str = type_param.AsString()
+                if type_name_str not in type_dict:
+                    type_dict[type_name_str] = []
+                type_dict[type_name_str].append(elem)
+    return type_dict
+
+def get_current_mark(elem):
+    mark_param = elem.get_Parameter(BuiltInParameter.ALL_MODEL_MARK)
+    if mark_param and mark_param.HasValue:
+        mark_value = mark_param.AsString()
+        return mark_value if mark_value else ""
+    return ""
+
+class MarkManagerModern(Form):
+    def __init__(self):
+        self.selected_category = None
+        self.selected_level = None
+        self.selected_type = None
+        self.filtered_elements = []
+        self.type_dict = {}
+        self.result = False
+        self.InitializeUI()
+    
+    def InitializeUI(self):
+        self.Text = "Mark Value Manager"
+        self.Width = 1100
+        self.Height = 750
+        self.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen
+        self.FormBorderStyle = FormBorderStyle.FixedDialog
+        self.MaximizeBox = False
+        self.BackColor = Color.FromArgb(18, 18, 24)
+        
+        title_font = Font("Segoe UI", 16, FontStyle.Bold)
+        section_font = Font("Segoe UI", 10, FontStyle.Bold)
+        label_font = Font("Segoe UI", 9)
+        code_font = Font("Consolas", 8)
+        
+        bg_panel = Color.FromArgb(28, 28, 36)
+        bg_input = Color.FromArgb(38, 38, 46)
+        accent = Color.FromArgb(0, 120, 215)
+        text_primary = Color.FromArgb(230, 230, 235)
+        text_secondary = Color.FromArgb(160, 160, 170)
+        
+        # Header
+        header = Panel()
+        header.Location = Point(15, 15)
+        header.Size = Size(1050, 80)
+        header.BackColor = bg_panel
+        self.Controls.Add(header)
+        
+        title = Label()
+        title.Text = "MARK VALUE MANAGER"
+        title.Font = title_font
+        title.ForeColor = text_primary
+        title.Location = Point(20, 15)
+        title.AutoSize = True
+        header.Controls.Add(title)
+        
+        subtitle = Label()
+        subtitle.Text = "Assign mark values by category, level, and type"
+        subtitle.Font = label_font
+        subtitle.ForeColor = text_secondary
+        subtitle.Location = Point(20, 45)
+        subtitle.AutoSize = True
+        header.Controls.Add(subtitle)
+        
+        # Left Panel
+        left_panel = Panel()
+        left_panel.Location = Point(15, 110)
+        left_panel.Size = Size(520, 530)
+        left_panel.BackColor = bg_panel
+        self.Controls.Add(left_panel)
+        
+        Label(Text="STEP 1: SELECT CATEGORY", Font=section_font, ForeColor=text_secondary, Location=Point(20, 15), AutoSize=True, Parent=left_panel)
+        
+        self.category_combo = ComboBox()
+        self.category_combo.Location = Point(20, 45)
+        self.category_combo.Size = Size(480, 28)
+        self.category_combo.Font = label_font
+        self.category_combo.BackColor = bg_input
+        self.category_combo.ForeColor = text_primary
+        self.category_combo.DropDownStyle = ComboBoxStyle.DropDownList
+        self.category_combo.FlatStyle = FlatStyle.Flat
+        left_panel.Controls.Add(self.category_combo)
+        
+        self.category_map = {
+            'Walls': BuiltInCategory.OST_Walls,
+            'Doors': BuiltInCategory.OST_Doors,
+            'Windows': BuiltInCategory.OST_Windows,
+            'Structural Framing': BuiltInCategory.OST_StructuralFraming,
+            'Structural Columns': BuiltInCategory.OST_StructuralColumns,
+            'Floors': BuiltInCategory.OST_Floors,
+            'Furniture': BuiltInCategory.OST_Furniture,
+            'Generic Models': BuiltInCategory.OST_GenericModel,
+        }
+        for cat in sorted(self.category_map.keys()):
+            self.category_combo.Items.Add(cat)
+        self.category_combo.SelectedIndexChanged += self.OnCategoryChanged
+        
+        Label(Text="STEP 2: SELECT LEVEL", Font=section_font, ForeColor=text_secondary, Location=Point(20, 90), AutoSize=True, Parent=left_panel)
+        
+        self.level_combo = ComboBox()
+        self.level_combo.Location = Point(20, 120)
+        self.level_combo.Size = Size(480, 28)
+        self.level_combo.Font = label_font
+        self.level_combo.BackColor = bg_input
+        self.level_combo.ForeColor = text_primary
+        self.level_combo.DropDownStyle = ComboBoxStyle.DropDownList
+        self.level_combo.FlatStyle = FlatStyle.Flat
+        self.level_combo.Enabled = False
+        left_panel.Controls.Add(self.level_combo)
+        
+        self.levels = get_all_levels()
+        for level in self.levels:
+            self.level_combo.Items.Add("{} (Elev: {:.2f})".format(level.Name, level.Elevation))
+        self.level_combo.SelectedIndexChanged += self.OnLevelChanged
+        
+        Label(Text="STEP 3: SELECT TYPE", Font=section_font, ForeColor=text_secondary, Location=Point(20, 165), AutoSize=True, Parent=left_panel)
+        
+        self.type_combo = ComboBox()
+        self.type_combo.Location = Point(20, 195)
+        self.type_combo.Size = Size(480, 28)
+        self.type_combo.Font = label_font
+        self.type_combo.BackColor = bg_input
+        self.type_combo.ForeColor = text_primary
+        self.type_combo.DropDownStyle = ComboBoxStyle.DropDownList
+        self.type_combo.FlatStyle = FlatStyle.Flat
+        self.type_combo.Enabled = False
+        self.type_combo.SelectedIndexChanged += self.OnTypeChanged
+        left_panel.Controls.Add(self.type_combo)
+        
+        Label(Text="SELECTED ELEMENTS", Font=section_font, ForeColor=text_secondary, Location=Point(20, 240), AutoSize=True, Parent=left_panel)
+        
+        self.element_count = Label()
+        self.element_count.Text = "0 elements"
+        self.element_count.Font = Font("Segoe UI", 9, FontStyle.Bold)
+        self.element_count.ForeColor = accent
+        self.element_count.Location = Point(420, 242)
+        self.element_count.AutoSize = True
+        left_panel.Controls.Add(self.element_count)
+        
+        self.info_text = TextBox()
+        self.info_text.Location = Point(20, 270)
+        self.info_text.Size = Size(480, 240)
+        self.info_text.Font = code_font
+        self.info_text.BackColor = Color.FromArgb(15, 15, 20)
+        self.info_text.ForeColor = text_secondary
+        self.info_text.BorderStyle = BorderStyle.FixedSingle
+        self.info_text.ReadOnly = True
+        self.info_text.Multiline = True
+        self.info_text.WordWrap = False
+        self.info_text.ScrollBars = ScrollBars.Both
+        self.info_text.Text = "Select category > level > type"
+        left_panel.Controls.Add(self.info_text)
+        
+        # Right Panel
+        right_panel = Panel()
+        right_panel.Location = Point(550, 110)
+        right_panel.Size = Size(515, 530)
+        right_panel.BackColor = bg_panel
+        self.Controls.Add(right_panel)
+        
+        Label(Text="STEP 4: ASSIGN VALUES", Font=section_font, ForeColor=text_secondary, Location=Point(20, 15), AutoSize=True, Parent=right_panel)
+        
+        Label(Text="Method:", Font=label_font, ForeColor=text_primary, Location=Point(20, 50), Size=Size(80, 20), Parent=right_panel)
+        
+        self.method_combo = ComboBox()
+        self.method_combo.Location = Point(100, 47)
+        self.method_combo.Size = Size(395, 28)
+        self.method_combo.Font = label_font
+        self.method_combo.BackColor = bg_input
+        self.method_combo.ForeColor = text_primary
+        self.method_combo.DropDownStyle = ComboBoxStyle.DropDownList
+        self.method_combo.FlatStyle = FlatStyle.Flat
+        self.method_combo.Items.Add("Single Value")
+        self.method_combo.Items.Add("Sequential Numbers")
+        self.method_combo.Items.Add("Sequential with Prefix")
+        self.method_combo.Items.Add("Comma-Separated")
+        self.method_combo.SelectedIndex = 0
+        self.method_combo.SelectedIndexChanged += self.OnMethodChanged
+        right_panel.Controls.Add(self.method_combo)
+        
+        self.input_container = Panel()
+        self.input_container.Location = Point(20, 92)
+        self.input_container.Size = Size(475, 140)
+        self.input_container.BackColor = bg_input
+        right_panel.Controls.Add(self.input_container)
+        
+        # Single value
+        self.single_label = Label(Text="Mark Value:", Font=label_font, ForeColor=text_primary, Location=Point(15, 20), AutoSize=True, Parent=self.input_container)
+        self.single_text = TextBox(Location=Point(15, 45), Size=Size(445, 28), Font=label_font, BackColor=Color.FromArgb(50, 50, 60), ForeColor=text_primary, BorderStyle=BorderStyle.FixedSingle, Parent=self.input_container)
+        
+        # Sequential
+        self.seq_start_label = Label(Text="Start:", Font=label_font, ForeColor=text_primary, Location=Point(15, 20), AutoSize=True, Visible=False, Parent=self.input_container)
+        self.seq_start_text = TextBox(Location=Point(15, 45), Size=Size(150, 28), Font=label_font, BackColor=Color.FromArgb(50, 50, 60), ForeColor=text_primary, BorderStyle=BorderStyle.FixedSingle, Text="1", Visible=False, Parent=self.input_container)
+        self.seq_step_label = Label(Text="Step:", Font=label_font, ForeColor=text_primary, Location=Point(185, 20), AutoSize=True, Visible=False, Parent=self.input_container)
+        self.seq_step_text = TextBox(Location=Point(185, 45), Size=Size(100, 28), Font=label_font, BackColor=Color.FromArgb(50, 50, 60), ForeColor=text_primary, BorderStyle=BorderStyle.FixedSingle, Text="1", Visible=False, Parent=self.input_container)
+        
+        # Prefix
+        self.prefix_label = Label(Text="Prefix:", Font=label_font, ForeColor=text_primary, Location=Point(15, 85), AutoSize=True, Visible=False, Parent=self.input_container)
+        self.prefix_text = TextBox(Location=Point(15, 110), Size=Size(200, 28), Font=label_font, BackColor=Color.FromArgb(50, 50, 60), ForeColor=text_primary, BorderStyle=BorderStyle.FixedSingle, Visible=False, Parent=self.input_container)
+        
+        # CSV
+        self.csv_label = Label(Text="Comma-separated values:", Font=label_font, ForeColor=text_primary, Location=Point(15, 15), Size=Size(445, 20), Visible=False, Parent=self.input_container)
+        self.csv_text = TextBox(Location=Point(15, 40), Size=Size(445, 90), Font=code_font, BackColor=Color.FromArgb(50, 50, 60), ForeColor=text_primary, BorderStyle=BorderStyle.FixedSingle, Multiline=True, ScrollBars=ScrollBars.Vertical, Visible=False, Parent=self.input_container)
+        
+        Label(Text="PREVIEW", Font=section_font, ForeColor=text_secondary, Location=Point(20, 247), AutoSize=True, Parent=right_panel)
+        
+        self.preview_text = TextBox()
+        self.preview_text.Location = Point(20, 277)
+        self.preview_text.Size = Size(475, 233)
+        self.preview_text.Font = code_font
+        self.preview_text.BackColor = Color.FromArgb(15, 15, 20)
+        self.preview_text.ForeColor = text_secondary
+        self.preview_text.BorderStyle = BorderStyle.FixedSingle
+        self.preview_text.ReadOnly = True
+        self.preview_text.Multiline = True
+        self.preview_text.WordWrap = False
+        self.preview_text.ScrollBars = ScrollBars.Both
+        self.preview_text.Text = "Click 'Generate Preview'..."
+        right_panel.Controls.Add(self.preview_text)
+        
+        # Buttons
+        self.preview_btn = Button()
+        self.preview_btn.Text = "GENERATE PREVIEW"
+        self.preview_btn.Location = Point(550, 655)
+        self.preview_btn.Size = Size(240, 45)
+        self.preview_btn.Font = Font("Segoe UI", 10, FontStyle.Bold)
+        self.preview_btn.BackColor = Color.FromArgb(70, 70, 80)
+        self.preview_btn.ForeColor = Color.White
+        self.preview_btn.FlatStyle = FlatStyle.Flat
+        self.preview_btn.FlatAppearance.BorderSize = 0
+        self.preview_btn.Click += self.GeneratePreview
+        self.preview_btn.Enabled = False
+        self.Controls.Add(self.preview_btn)
+        
+        self.apply_btn = Button()
+        self.apply_btn.Text = "APPLY MARK VALUES"
+        self.apply_btn.Location = Point(810, 655)
+        self.apply_btn.Size = Size(255, 45)
+        self.apply_btn.Font = Font("Segoe UI", 10, FontStyle.Bold)
+        self.apply_btn.BackColor = accent
+        self.apply_btn.ForeColor = Color.White
+        self.apply_btn.FlatStyle = FlatStyle.Flat
+        self.apply_btn.FlatAppearance.BorderSize = 0
+        self.apply_btn.Click += self.ApplyMarks
+        self.apply_btn.Enabled = False
+        self.Controls.Add(self.apply_btn)
+    
+    def OnCategoryChanged(self, sender, args):
+        self.level_combo.Enabled = True
+        self.type_combo.Enabled = False
+        self.type_combo.Items.Clear()
+        self.filtered_elements = []
+        self.UpdateInfoPanel()
+        self.preview_btn.Enabled = False
+        self.apply_btn.Enabled = False
+    
+    def OnLevelChanged(self, sender, args):
+        if self.category_combo.SelectedIndex < 0 or self.level_combo.SelectedIndex < 0:
+            return
+        cat_name = self.category_combo.SelectedItem
+        self.selected_category = self.category_map[cat_name]
+        self.selected_level = self.levels[self.level_combo.SelectedIndex]
+        elements = get_elements_by_category_and_level(self.selected_category, self.selected_level)
+        if not elements:
+            forms.alert("No {} on {}".format(cat_name, self.selected_level.Name))
+            return
+        self.type_dict = group_by_type(elements)
+        if not self.type_dict:
+            return
+        self.type_combo.Items.Clear()
+        for type_name in sorted(self.type_dict.keys()):
+            count = len(self.type_dict[type_name])
+            self.type_combo.Items.Add("{} ({})".format(type_name, count))
+        self.type_combo.Enabled = True
+        self.UpdateInfoPanel()
+    
+    def OnTypeChanged(self, sender, args):
+        if self.type_combo.SelectedIndex < 0:
+            return
+        selected = self.type_combo.SelectedItem
+        type_name = selected.split(' (')[0]
+        self.selected_type = type_name
+        self.filtered_elements = self.type_dict[type_name]
+        self.UpdateInfoPanel()
+        self.preview_btn.Enabled = True
+        self.apply_btn.Enabled = True
+    
+    def UpdateInfoPanel(self):
+        if not self.filtered_elements:
+            self.info_text.Text = "Select category > level > type"
+            self.element_count.Text = "0 elements"
+            return
+        count = len(self.filtered_elements)
+        self.element_count.Text = "{} element{}".format(count, "s" if count != 1 else "")
+        info = "FOUND {} ELEMENTS\n{}\n\n".format(count, "=" * 60)
+        for i, elem in enumerate(self.filtered_elements[:20], 1):
+            mark = get_current_mark(elem)
+            info += "{}. ID: {} | Mark: {}\n".format(i, elem.Id, mark if mark else "(empty)")
+        if len(self.filtered_elements) > 20:
+            info += "\n... {} more".format(len(self.filtered_elements) - 20)
+        self.info_text.Text = info
+    
+    def OnMethodChanged(self, sender, args):
+        method = self.method_combo.SelectedItem
+        self.single_label.Visible = self.single_text.Visible = (method == "Single Value")
+        self.seq_start_label.Visible = self.seq_start_text.Visible = self.seq_step_label.Visible = self.seq_step_text.Visible = (method in ["Sequential Numbers", "Sequential with Prefix"])
+        self.prefix_label.Visible = self.prefix_text.Visible = (method == "Sequential with Prefix")
+        self.csv_label.Visible = self.csv_text.Visible = (method == "Comma-Separated")
+    
+    def GeneratePreview(self, sender, args):
+        if not self.filtered_elements:
+            return
+        new_marks = self.GetNewMarks()
+        if not new_marks:
+            return
+        preview = "PREVIEW: {} ELEMENTS\n{}\n\n".format(len(self.filtered_elements), "=" * 60)
+        for i, (elem, new_mark) in enumerate(zip(self.filtered_elements[:15], new_marks[:15]), 1):
+            old = get_current_mark(elem)
+            preview += "{}. ID: {} | {} -> {}\n".format(i, elem.Id, old if old else "(empty)", new_mark)
+        if len(self.filtered_elements) > 15:
+            preview += "\n... {} more".format(len(self.filtered_elements) - 15)
+        self.preview_text.Text = preview
+    
+    def GetNewMarks(self):
+        method = self.method_combo.SelectedItem
+        count = len(self.filtered_elements)
+        if method == "Single Value":
+            value = self.single_text.Text.strip()
+            if not value:
+                forms.alert("Enter a value")
+                return None
+            return [value] * count
+        elif method == "Sequential Numbers":
+            try:
+                start = int(self.seq_start_text.Text)
+                step = int(self.seq_step_text.Text)
+                return [str(start + i * step) for i in range(count)]
+            except:
+                forms.alert("Invalid number")
+                return None
+        elif method == "Sequential with Prefix":
+            try:
+                prefix = self.prefix_text.Text.strip()
+                start = int(self.seq_start_text.Text)
+                step = int(self.seq_step_text.Text)
+                return ["{}-{}".format(prefix, start + i * step) for i in range(count)]
+            except:
+                forms.alert("Invalid input")
+                return None
+        elif method == "Comma-Separated":
+            text = self.csv_text.Text.strip()
+            if not text:
+                forms.alert("Enter values")
+                return None
+            values = [v.strip() for v in text.replace('\n', ',').split(',') if v.strip()]
+            if len(values) != count:
+                forms.alert("Mismatch: {} values vs {} elements".format(len(values), count))
+                return None
+            return values
+        return None
+    
+    def ApplyMarks(self, sender, args):
+        if not self.filtered_elements:
+            return
+        new_marks = self.GetNewMarks()
+        if not new_marks:
+            return
+        if not forms.alert("Apply to {} elements?".format(len(self.filtered_elements)), yes=True, no=True):
+            return
+        self.apply_btn.Enabled = False
+        self.apply_btn.Text = "APPLYING..."
+        success = 0
+        errors = 0
+        t = Transaction(doc, "Set Mark Values")
+        t.Start()
+        try:
+            for elem, mark in zip(self.filtered_elements, new_marks):
+                try:
+                    param = elem.get_Parameter(BuiltInParameter.ALL_MODEL_MARK)
+                    if param and not param.IsReadOnly:
+                        param.Set(mark)
+                        success += 1
+                    else:
+                        errors += 1
+                except:
+                    errors += 1
+            t.Commit()
+            forms.alert("Updated!\nSuccess: {}\nErrors: {}".format(success, errors))
+            self.result = True
+            self.Close()
+        except Exception as e:
+            t.RollBack()
+            forms.alert("Failed: {}".format(str(e)))
+            self.apply_btn.Enabled = True
+            self.apply_btn.Text = "APPLY MARK VALUES"
+
+if __name__ == '__main__':
+    form = MarkManagerModern()
+    form.ShowDialog()
+    if form.result:
+        output.print_md("## Mark Values Updated")
+        output.print_md("**Elements:** {}".format(len(form.filtered_elements)))
