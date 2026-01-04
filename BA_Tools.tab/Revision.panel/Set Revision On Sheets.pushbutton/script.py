@@ -204,7 +204,7 @@ class RevisionManager(Form):
         
         clear_all_rev_btn = Button()
         clear_all_rev_btn.Text = "Clear"
-        clear_all_rev_btn.Location = Point(left_x + 85, y_offset)
+        clear_all_rev_btn.Location = Point(left_x + 65, y_offset)
         clear_all_rev_btn.Size = Size(60, 24)
         clear_all_rev_btn.Font = Font("Consolas", 8, FontStyle.Bold)
         clear_all_rev_btn.BackColor = Color.FromArgb(80, 80, 100)
