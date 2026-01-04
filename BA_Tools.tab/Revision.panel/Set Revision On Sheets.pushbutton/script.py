@@ -187,10 +187,12 @@ class RevisionManager(Form):
         self.unissued_radio.CheckedChanged += self.OnRevisionFilterChanged
         filter_group.Controls.Add(self.unissued_radio)
         
-        # Select buttons
+        y_offset += 25
+
+        # Select buttons (moved below filter group)
         select_all_rev_btn = Button()
         select_all_rev_btn.Text = "All"
-        select_all_rev_btn.Location = Point(left_x + 370, y_offset + 28)
+        select_all_rev_btn.Location = Point(left_x, y_offset)
         select_all_rev_btn.Size = Size(60, 24)
         select_all_rev_btn.Font = Font("Consolas", 8, FontStyle.Bold)
         select_all_rev_btn.BackColor = self.accent_color
@@ -202,7 +204,7 @@ class RevisionManager(Form):
         
         clear_all_rev_btn = Button()
         clear_all_rev_btn.Text = "Clear"
-        clear_all_rev_btn.Location = Point(left_x + 435, y_offset + 28)
+        clear_all_rev_btn.Location = Point(left_x + 85, y_offset)
         clear_all_rev_btn.Size = Size(60, 24)
         clear_all_rev_btn.Font = Font("Consolas", 8, FontStyle.Bold)
         clear_all_rev_btn.BackColor = Color.FromArgb(80, 80, 100)
@@ -212,7 +214,7 @@ class RevisionManager(Form):
         clear_all_rev_btn.Click += self.ClearAllRevisions
         self.Controls.Add(clear_all_rev_btn)
         
-        y_offset += 60
+        y_offset += 40
         
         # Revision CheckedListBox
         self.revision_list = CheckedListBox()
@@ -271,6 +273,7 @@ class RevisionManager(Form):
         self.sheet_filter_textbox.TextChanged += self.OnSheetFilterChanged
         self.Controls.Add(self.sheet_filter_textbox)
         
+        
         # Sheet select buttons
         select_all_sheet_btn = Button()
         select_all_sheet_btn.Text = "All"
@@ -308,7 +311,7 @@ class RevisionManager(Form):
         filtered_btn.Click += self.SelectFiltered
         self.Controls.Add(filtered_btn)
         
-        y_offset += 60
+        y_offset += 65
         
         # Sheet CheckedListBox
         self.sheet_list = CheckedListBox()
