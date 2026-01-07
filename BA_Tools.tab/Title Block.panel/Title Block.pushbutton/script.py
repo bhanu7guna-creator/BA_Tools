@@ -1,27 +1,25 @@
 # -*- coding: utf-8 -*-
 """
-Title Block Batch Update
+Title Block Batch Update - Compact XAML UI
 Select multiple sheets and update title block parameters at once
 """
 __title__ = 'Title Block\nUpdate'
 __doc__ = 'Batch update title block parameters on multiple sheets'
 
 import clr
+clr.AddReference("PresentationFramework")
+clr.AddReference("PresentationCore")
+clr.AddReference("WindowsBase")
 clr.AddReference("RevitAPI")
-clr.AddReference("System.Windows.Forms")
-clr.AddReference("System.Drawing")
 
 from Autodesk.Revit.DB import *
 from pyrevit import revit, script, forms
-import System
-from System.Windows.Forms import (
-    Form, Label, CheckedListBox, Button, TextBox, RadioButton,
-    Panel, GroupBox, DateTimePicker,
-    FormBorderStyle, FlatStyle, BorderStyle
-)
-from System.Drawing import (
-    Color, Font, FontStyle, Size, Point
-)
+from System.Windows import Window
+from System.Windows.Markup import XamlReader
+from System.IO import MemoryStream
+from System.Text import Encoding
+from System import DateTime
+import os
 
 doc = revit.doc
 uidoc = revit.uidoc
@@ -29,7 +27,232 @@ output = script.get_output()
 
 
 # ==============================================================================
-# COLLECT SHEETS AND TITLE BLOCKS
+# EMBEDDED XAML (COMPACT VERSION)
+# ==============================================================================
+
+XAML_STRING = '''
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Title Block Update" 
+        Width="900" Height="600"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="CanResize"
+        WindowStyle="None"
+        Background="#1A1A1A"
+        AllowsTransparency="False">
+
+    <Border BorderBrush="#0078D4" BorderThickness="2" Background="#1A1A1A">
+        <Grid Margin="0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="60"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="60"/>
+            </Grid.RowDefinitions>
+
+            <!-- HEADER BAR -->
+            <Border Grid.Row="0" Background="#000000" BorderBrush="#0078D4" BorderThickness="0,0,0,2">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- BA LOGO -->
+                    <Border Grid.Column="0" 
+                            Background="#0078D4" 
+                            Width="50" 
+                            Height="50" 
+                            CornerRadius="5"
+                            Margin="10,5,15,5"
+                            VerticalAlignment="Center">
+                        <TextBlock Text="BA" 
+                                   FontFamily="Segoe UI" 
+                                   FontSize="20" 
+                                   FontWeight="Bold" 
+                                   Foreground="White"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"/>
+                    </Border>
+
+                    <!-- TITLE -->
+                    <TextBlock Grid.Column="1" 
+                               Text="TITLE BLOCK UPDATE" 
+                               FontFamily="Segoe UI" 
+                               FontSize="20" 
+                               FontWeight="Bold" 
+                               Foreground="White"
+                               VerticalAlignment="Center"
+                               Margin="20,0,0,0"/>
+
+                    <!-- CLOSE BUTTON -->
+                    <Button Grid.Column="2" 
+                            x:Name="btn_close_window"
+                            Content="Close" 
+                            Width="80" 
+                            Height="30" 
+                            Background="Transparent" 
+                            Foreground="White" 
+                            FontFamily="Segoe UI"
+                            FontSize="13"
+                            FontWeight="Bold"
+                            BorderBrush="#0078D4"
+                            BorderThickness="1,0,0,0"
+                            Cursor="Hand">
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Background" Value="Transparent"/>
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border Background="{TemplateBinding Background}" 
+                                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                                    BorderThickness="{TemplateBinding BorderThickness}">
+                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                                <Style.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Background" Value="#0078D4"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                </Grid>
+            </Border>
+
+            <!-- MAIN CONTENT -->
+            <Grid Grid.Row="1" Margin="10,10,10,10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="320"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- LEFT - SHEETS -->
+                <Border Grid.Column="0" Background="#2D2D30" BorderBrush="#0078D4" BorderThickness="1" CornerRadius="5" Margin="0,0,5,0">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="40"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="55"/>
+                        </Grid.RowDefinitions>
+
+                        <TextBox x:Name="txt_sheet_filter" 
+                                 Grid.Row="0"
+                                 Height="28" 
+                                 Background="#1A1A1A" 
+                                 Foreground="White" 
+                                 BorderBrush="#3F3F46"
+                                 FontFamily="Segoe UI" 
+                                 FontSize="11" 
+                                 Padding="8,5"
+                                 Margin="10,6"/>
+
+                        <Border Grid.Row="1" Background="#1A1A1A" BorderBrush="#3F3F46" BorderThickness="1" Margin="10,0" CornerRadius="3">
+                            <ListBox x:Name="list_sheets" 
+                                     Background="Transparent" 
+                                     BorderThickness="0" 
+                                     FontFamily="Consolas" 
+                                     FontSize="10" 
+                                     Foreground="White"
+                                     SelectionMode="Multiple">
+                                <ListBox.ItemContainerStyle>
+                                    <Style TargetType="ListBoxItem">
+                                        <Setter Property="Padding" Value="8,5"/>
+                                        <Setter Property="Background" Value="Transparent"/>
+                                        <Setter Property="Foreground" Value="White"/>
+                                        <Setter Property="BorderThickness" Value="0"/>
+                                        <Setter Property="Margin" Value="2"/>
+                                        <Style.Triggers>
+                                            <Trigger Property="IsSelected" Value="True">
+                                                <Setter Property="Background" Value="#0078D4"/>
+                                                <Setter Property="Foreground" Value="White"/>
+                                            </Trigger>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter Property="Background" Value="#3F3F46"/>
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ListBox.ItemContainerStyle>
+                            </ListBox>
+                        </Border>
+
+                        <StackPanel Grid.Row="2" Orientation="Vertical" Margin="10,5">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,5">
+                                <Button x:Name="btn_select_all" Content="All" Width="70" Height="25" Background="#0078D4" Foreground="White" FontSize="10" FontWeight="Bold" BorderThickness="0" Margin="0,0,5,0" Cursor="Hand"/>
+                                <Button x:Name="btn_clear_all" Content="None" Width="70" Height="25" Background="#3F3F46" Foreground="White" FontSize="10" FontWeight="Bold" BorderThickness="0" Cursor="Hand"/>
+                            </StackPanel>
+                            <TextBlock x:Name="txt_count" Text="0 / 0 selected" FontSize="9" Foreground="#0078D4" HorizontalAlignment="Center" FontWeight="Bold"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- RIGHT - PARAMETERS -->
+                <Border Grid.Column="1" Background="#2D2D30" BorderBrush="#0078D4" BorderThickness="1" CornerRadius="5" Margin="5,0,0,0">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="15,10">
+                        <StackPanel>
+                            <TextBlock Text="PARAMETERS" FontSize="12" FontWeight="Bold" Foreground="#0078D4" Margin="0,0,0,10"/>
+                            
+                            <TextBlock Text="Drawn By:" FontSize="9" Foreground="#AAA" Margin="0,5,0,3"/>
+                            <TextBox x:Name="txt_drawn_by" Height="26" Background="#1A1A1A" Foreground="White" BorderBrush="#3F3F46" FontSize="11" Padding="5"/>
+                            
+                            <TextBlock Text="Checked By:" FontSize="9" Foreground="#AAA" Margin="0,8,0,3"/>
+                            <TextBox x:Name="txt_checked_by" Height="26" Background="#1A1A1A" Foreground="White" BorderBrush="#3F3F46" FontSize="11" Padding="5"/>
+                            
+                            <TextBlock Text="Designed By:" FontSize="9" Foreground="#AAA" Margin="0,8,0,3"/>
+                            <TextBox x:Name="txt_designed_by" Height="26" Background="#1A1A1A" Foreground="White" BorderBrush="#3F3F46" FontSize="11" Padding="5"/>
+                            
+                            <TextBlock Text="Approved By:" FontSize="9" Foreground="#AAA" Margin="0,8,0,3"/>
+                            <TextBox x:Name="txt_approved_by" Height="26" Background="#1A1A1A" Foreground="White" BorderBrush="#3F3F46" FontSize="11" Padding="5"/>
+                            
+                            <TextBlock Text="Issue Date:" FontSize="9" Foreground="#AAA" Margin="0,8,0,3"/>
+                            <DatePicker x:Name="date_picker" 
+                                        Height="26" 
+                                        FontSize="11"
+                                        BorderBrush="#3F3F46"
+                                        BorderThickness="1">
+                                <DatePicker.Resources>
+                                    <Style TargetType="DatePickerTextBox">
+                                        <Setter Property="Background" Value="#1A1A1A"/>
+                                        <Setter Property="Foreground" Value="White"/>
+                                        <Setter Property="BorderThickness" Value="0"/>
+                                        <Setter Property="Padding" Value="5,3"/>
+                                    </Style>
+                                </DatePicker.Resources>
+                            </DatePicker>
+                            
+                            <TextBlock Text="Project Number:" FontSize="9" Foreground="#AAA" Margin="0,8,0,3"/>
+                            <TextBox x:Name="txt_project_number" Height="26" Background="#1A1A1A" Foreground="White" BorderBrush="#3F3F46" FontSize="11" Padding="5"/>
+                            
+                            <TextBlock Text="Project Name:" FontSize="9" Foreground="#AAA" Margin="0,8,0,3"/>
+                            <TextBox x:Name="txt_project_name" Height="26" Background="#1A1A1A" Foreground="White" BorderBrush="#3F3F46" FontSize="11" Padding="5"/>
+                            
+                            <Button x:Name="btn_clear_fields" Content="Clear All Fields" Height="28" Background="#505050" Foreground="White" FontSize="10" FontWeight="Bold" BorderThickness="0" Margin="0,15,0,10" Cursor="Hand"/>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Border>
+            </Grid>
+
+            <!-- BOTTOM BUTTONS -->
+            <Border Grid.Row="2" Background="#000000" BorderBrush="#0078D4" BorderThickness="0,2,0,0">
+                <Grid>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <Button x:Name="btn_cancel" Content="Cancel" Width="150" Height="35" Background="#505050" Foreground="White" FontSize="12" FontWeight="Bold" BorderThickness="0" Margin="0,0,10,0" Cursor="Hand"/>
+                        <Button x:Name="btn_update" Content="Update Sheets" Width="200" Height="35" Background="#0078D4" Foreground="White" FontSize="12" FontWeight="Bold" BorderThickness="0" Cursor="Hand"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+    </Border>
+</Window>
+'''
+
+
+# ==============================================================================
+# DATA COLLECTION
 # ==============================================================================
 
 def get_all_sheets_with_titleblocks():
@@ -40,487 +263,224 @@ def get_all_sheets_with_titleblocks():
         .ToElements()
     
     sheet_data = []
-    
     for sheet in sheets:
-        # Get title block on sheet
         titleblocks = FilteredElementCollector(doc, sheet.Id)\
             .OfCategory(BuiltInCategory.OST_TitleBlocks)\
             .WhereElementIsNotElementType()\
             .ToElements()
         
         if titleblocks:
-            titleblock = titleblocks[0]
             sheet_data.append({
                 'sheet': sheet,
-                'titleblock': titleblock,
+                'titleblock': titleblocks[0],
                 'sheet_number': sheet.SheetNumber,
                 'sheet_name': sheet.Name
             })
     
-    # Sort by sheet number
-    sheet_data_sorted = sorted(sheet_data, key=lambda x: x['sheet_number'])
-    
-    return sheet_data_sorted
-
-
-# Get title block parameter names (common ones)
-TITLEBLOCK_PARAMS = {
-    'Drawn By': 'Drawn By',
-    'Checked By': 'Checked By',
-    'Designed By': 'Designed By',
-    'Approved By': 'Approved By',
-    'Sheet Issue Date': 'Sheet Issue Date',
-    'Project Number': 'Project Number',
-    'Project Name': 'Project Name',
-    'Client Name': 'Client Name',
-    'Project Address': 'Project Address'
-}
-
-# Collect data
-all_sheets = get_all_sheets_with_titleblocks()
-
-if not all_sheets:
-    forms.alert('No sheets with title blocks found', exitscript=True)
-
-output.print_md("**Found {} sheets with title blocks**".format(len(all_sheets)))
+    return sorted(sheet_data, key=lambda x: x['sheet_number'])
 
 
 # ==============================================================================
-# MODERN TITLE BLOCK UPDATE UI
+# WINDOW CLASS
 # ==============================================================================
 
-class TitleBlockBatchUpdate(Form):
+class TitleBlockWindow:
     def __init__(self, sheet_data, document):
         self.sheet_data = sheet_data
+        self.all_sheets = sheet_data
         self.doc = document
-        self.selected_sheets = []
         self.result = None
         
-        self.InitializeUI()
+        # Load XAML
+        xaml_bytes = Encoding.UTF8.GetBytes(XAML_STRING)
+        stream = MemoryStream(xaml_bytes)
+        self.window = XamlReader.Load(stream)
+        
+        # Get controls - search in the loaded window
+        self.list_sheets = self.find_control("list_sheets")
+        self.txt_sheet_filter = self.find_control("txt_sheet_filter")
+        self.txt_count = self.find_control("txt_count")
+        self.btn_select_all = self.find_control("btn_select_all")
+        self.btn_clear_all = self.find_control("btn_clear_all")
+        
+        self.txt_drawn_by = self.find_control("txt_drawn_by")
+        self.txt_checked_by = self.find_control("txt_checked_by")
+        self.txt_designed_by = self.find_control("txt_designed_by")
+        self.txt_approved_by = self.find_control("txt_approved_by")
+        self.txt_project_number = self.find_control("txt_project_number")
+        self.txt_project_name = self.find_control("txt_project_name")
+        self.date_picker = self.find_control("date_picker")
+        
+        self.btn_clear_fields = self.find_control("btn_clear_fields")
+        self.btn_cancel = self.find_control("btn_cancel")
+        self.btn_update = self.find_control("btn_update")
     
-    def InitializeUI(self):
-        # Form properties
-        self.Text = "TITLE BLOCK BATCH UPDATE"
-        self.Width = 900
-        self.Height = 800
-        self.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen
-        self.FormBorderStyle = FormBorderStyle.FixedDialog
-        self.MaximizeBox = False
-        self.BackColor = Color.FromArgb(20, 20, 28)
-        self.ForeColor = Color.FromArgb(220, 220, 220)
-        
-        # Fonts
-        self.title_font = Font("Segoe UI", 14, FontStyle.Bold)
-        self.label_font = Font("Consolas", 9, FontStyle.Regular)
-        self.input_font = Font("Consolas", 10, FontStyle.Regular)
-        
-        # Colors
-        self.bg_panel = Color.FromArgb(30, 30, 40)
-        self.accent_color = Color.FromArgb(74, 144, 226)
-        self.text_color = Color.FromArgb(220, 220, 220)
-        self.text_muted = Color.FromArgb(140, 140, 150)
-        
-        y_offset = 20
-        
-        # ===== HEADER =====
-        header_panel = Panel()
-        header_panel.Location = Point(20, y_offset)
-        header_panel.Size = Size(840, 70)
-        header_panel.BackColor = self.bg_panel
-        self.Controls.Add(header_panel)
-        
-        title = Label()
-        title.Text = "TITLE BLOCK UPDATE"
-        title.Font = self.title_font
-        title.ForeColor = Color.White
-        title.Location = Point(20, 10)
-        title.Size = Size(400, 30)
-        header_panel.Controls.Add(title)
-        
-        subtitle = Label()
-        subtitle.Text = "BATCH UPDATE TITLE BLOCK PARAMETERS"
-        subtitle.Font = Font("Consolas", 8, FontStyle.Regular)
-        subtitle.ForeColor = self.text_muted
-        subtitle.Location = Point(20, 40)
-        subtitle.Size = Size(400, 20)
-        header_panel.Controls.Add(subtitle)
-        
-        y_offset += 90
-        
-        # ===== SHEET SELECTION =====
-        sheet_label = Label()
-        sheet_label.Text = "SELECT SHEETS"
-        sheet_label.Font = self.label_font
-        sheet_label.ForeColor = self.text_muted
-        sheet_label.Location = Point(20, y_offset)
-        sheet_label.Size = Size(400, 20)
-        self.Controls.Add(sheet_label)
-        
-        y_offset += 25
-        
-        # Selection buttons
-        self.select_all_radio = RadioButton()
-        self.select_all_radio.Text = "Select all"
-        self.select_all_radio.Location = Point(20, y_offset)
-        self.select_all_radio.Size = Size(100, 20)
-        self.select_all_radio.Font = Font("Consolas", 9, FontStyle.Regular)
-        self.select_all_radio.ForeColor = self.text_color
-        self.select_all_radio.CheckedChanged += self.OnSelectAllChanged
-        self.Controls.Add(self.select_all_radio)
-        
-        self.select_none_radio = RadioButton()
-        self.select_none_radio.Text = "Select none"
-        self.select_none_radio.Location = Point(150, y_offset)
-        self.select_none_radio.Size = Size(120, 20)
-        self.select_none_radio.Font = Font("Consolas", 9, FontStyle.Regular)
-        self.select_none_radio.ForeColor = self.text_color
-        self.select_none_radio.CheckedChanged += self.OnSelectNoneChanged
-        self.Controls.Add(self.select_none_radio)
-        
-        # Sheet count
-        self.sheet_count_label = Label()
-        self.sheet_count_label.Text = "0 / {} selected".format(len(self.sheet_data))
-        self.sheet_count_label.Font = Font("Consolas", 8, FontStyle.Regular)
-        self.sheet_count_label.ForeColor = self.text_muted
-        self.sheet_count_label.Location = Point(300, y_offset + 2)
-        self.sheet_count_label.Size = Size(200, 20)
-        self.Controls.Add(self.sheet_count_label)
-        
-        y_offset += 30
-        
-        # Sheet CheckedListBox
-        self.sheet_list = CheckedListBox()
-        self.sheet_list.Location = Point(20, y_offset)
-        self.sheet_list.Size = Size(400, 380)
-        self.sheet_list.Font = Font("Consolas", 9, FontStyle.Regular)
-        self.sheet_list.BackColor = Color.FromArgb(15, 15, 20)
-        self.sheet_list.ForeColor = self.text_color
-        self.sheet_list.BorderStyle = BorderStyle.FixedSingle
-        self.sheet_list.CheckOnClick = True
-        
-        # Add sheets
-        for sheet_data in self.sheet_data:
-            display_text = "{} - {}".format(
-                sheet_data['sheet_number'],
-                sheet_data['sheet_name']
-            )
-            self.sheet_list.Items.Add(display_text)
-        
-        self.Controls.Add(self.sheet_list)
-        
-        self.sheet_list.ItemCheck += self.UpdateSheetCount
-        
-        # ===== PARAMETER INPUTS =====
-        right_x = 440
-        y_offset = 110
-        
-        param_label = Label()
-        param_label.Text = "TITLE BLOCK PARAMETERS"
-        param_label.Font = self.label_font
-        param_label.ForeColor = self.text_muted
-        param_label.Location = Point(right_x, y_offset)
-        param_label.Size = Size(420, 20)
-        self.Controls.Add(param_label)
-        
-        y_offset += 30
-        
-        # Parameter input panel
-        param_panel = Panel()
-        param_panel.Location = Point(right_x, y_offset)
-        param_panel.Size = Size(420, 380)
-        param_panel.BackColor = self.bg_panel
-        self.Controls.Add(param_panel)
-        
-        panel_y = 20
-        
-        # Drawn By
-        self.CreateParameterInput(
-            param_panel,
-            "Drawn By:",
-            panel_y,
-            "drawn_by"
-        )
-        panel_y += 50
-        
-        # Checked By
-        self.CreateParameterInput(
-            param_panel,
-            "Checked By:",
-            panel_y,
-            "checked_by"
-        )
-        panel_y += 50
-        
-        # Designed By
-        self.CreateParameterInput(
-            param_panel,
-            "Designed By:",
-            panel_y,
-            "designed_by"
-        )
-        panel_y += 50
-        
-        # Approved By
-        self.CreateParameterInput(
-            param_panel,
-            "Approved By:",
-            panel_y,
-            "approved_by"
-        )
-        panel_y += 50
-        
-        # Sheet Issue Date
-        date_label = Label()
-        date_label.Text = "Sheet Issue Date:"
-        date_label.Location = Point(15, panel_y)
-        date_label.Size = Size(120, 20)
-        date_label.Font = self.label_font
-        date_label.ForeColor = self.text_color
-        param_panel.Controls.Add(date_label)
-        
-        self.issue_date_picker = DateTimePicker()
-        self.issue_date_picker.Location = Point(140, panel_y - 2)
-        self.issue_date_picker.Size = Size(260, 25)
-        self.issue_date_picker.Font = Font("Consolas", 9, FontStyle.Regular)
-        self.issue_date_picker.Format = System.Windows.Forms.DateTimePickerFormat.Short
-        param_panel.Controls.Add(self.issue_date_picker)
-        
-        panel_y += 50
-        
-        # Project Number
-        self.CreateParameterInput(
-            param_panel,
-            "Project Number:",
-            panel_y,
-            "project_number"
-        )
-        panel_y += 50
-        
-        # Clear button
-        clear_btn = Button()
-        clear_btn.Text = "Clear All Fields"
-        clear_btn.Location = Point(140, panel_y)
-        clear_btn.Size = Size(260, 30)
-        clear_btn.Font = Font("Consolas", 9, FontStyle.Bold)
-        clear_btn.BackColor = Color.FromArgb(80, 80, 100)
-        clear_btn.ForeColor = Color.White
-        clear_btn.FlatStyle = FlatStyle.Flat
-        clear_btn.FlatAppearance.BorderSize = 0
-        clear_btn.Click += self.ClearFields
-        param_panel.Controls.Add(clear_btn)
-        
-        # ===== BUTTONS =====
-        y_offset = 710
-        
-        cancel_btn = Button()
-        cancel_btn.Text = "CANCEL"
-        cancel_btn.Location = Point(20, y_offset)
-        cancel_btn.Size = Size(410, 45)
-        cancel_btn.Font = Font("Consolas", 11, FontStyle.Bold)
-        cancel_btn.BackColor = Color.FromArgb(80, 80, 100)
-        cancel_btn.ForeColor = Color.White
-        cancel_btn.FlatStyle = FlatStyle.Flat
-        cancel_btn.FlatAppearance.BorderSize = 0
-        cancel_btn.Click += lambda s, e: self.Close()
-        self.Controls.Add(cancel_btn)
-        
-        self.update_btn = Button()
-        self.update_btn.Text = "UPDATE"
-        self.update_btn.Location = Point(450, y_offset)
-        self.update_btn.Size = Size(410, 45)
-        self.update_btn.Font = Font("Consolas", 11, FontStyle.Bold)
-        self.update_btn.BackColor = self.accent_color
-        self.update_btn.ForeColor = Color.White
-        self.update_btn.FlatStyle = FlatStyle.Flat
-        self.update_btn.FlatAppearance.BorderSize = 0
-        self.update_btn.Click += self.UpdateTitleBlocks
-        self.Controls.Add(self.update_btn)
+    def find_control(self, name):
+        """Find control by name in the window"""
+        return self.window.FindName(name)
     
-    def CreateParameterInput(self, parent, label_text, y_pos, attr_name):
-        """Helper to create parameter input field"""
-        label = Label()
-        label.Text = label_text
-        label.Location = Point(15, y_pos)
-        label.Size = Size(120, 20)
-        label.Font = self.label_font
-        label.ForeColor = self.text_color
-        parent.Controls.Add(label)
+    def show(self):
+        """Show the window"""
+        # Get close button
+        self.btn_close_window = self.find_control("btn_close_window")
         
-        textbox = TextBox()
-        textbox.Location = Point(140, y_pos - 2)
-        textbox.Size = Size(260, 25)
-        textbox.Font = self.input_font
-        textbox.BackColor = Color.FromArgb(15, 15, 20)
-        textbox.ForeColor = self.text_color
-        parent.Controls.Add(textbox)
+        # Events
+        self.txt_sheet_filter.TextChanged += self.OnFilterChanged
+        self.list_sheets.SelectionChanged += self.OnSelectionChanged
+        self.btn_select_all.Click += self.SelectAll
+        self.btn_clear_all.Click += self.ClearAll
+        self.btn_clear_fields.Click += self.ClearFields
+        self.btn_close_window.Click += self.OnCancel
+        self.btn_cancel.Click += self.OnCancel
+        self.btn_update.Click += self.Update
         
-        # Store reference
-        setattr(self, attr_name + "_textbox", textbox)
-    
-    def OnSelectAllChanged(self, sender, args):
-        if self.select_all_radio.Checked:
-            for i in range(self.sheet_list.Items.Count):
-                self.sheet_list.SetItemChecked(i, True)
-    
-    def OnSelectNoneChanged(self, sender, args):
-        if self.select_none_radio.Checked:
-            for i in range(self.sheet_list.Items.Count):
-                self.sheet_list.SetItemChecked(i, False)
-    
-    def UpdateSheetCount(self, sender, args):
-        System.Windows.Forms.Timer().Tick += lambda s, e: self.DoUpdateCount(s, e)
-    
-    def DoUpdateCount(self, sender, args):
-        sender.Stop()
-        count = self.sheet_list.CheckedItems.Count
-        self.sheet_count_label.Text = "{} / {} selected".format(count, len(self.sheet_data))
-    
-    def ClearFields(self, sender, args):
-        """Clear all input fields"""
-        self.drawn_by_textbox.Text = ""
-        self.checked_by_textbox.Text = ""
-        self.designed_by_textbox.Text = ""
-        self.approved_by_textbox.Text = ""
-        self.project_number_textbox.Text = ""
-        self.issue_date_picker.Value = System.DateTime.Now
-    
-    def GetParameterValue(self, element, param_name):
-        """Get parameter value from element"""
-        param = element.LookupParameter(param_name)
-        if param and not param.IsReadOnly:
-            return param
-        return None
-    
-    def UpdateTitleBlocks(self, sender, args):
-        # Get selected sheets
-        checked_indices = []
-        for i in range(self.sheet_list.CheckedItems.Count):
-            checked_indices.append(self.sheet_list.CheckedIndices[i])
+        self.populate_sheets()
+        self.update_count()
         
-        if len(checked_indices) == 0:
-            forms.alert("Please select at least one sheet", title="Validation Error")
+        self.window.ShowDialog()
+    
+    def OnCancel(self, s, e):
+        """Close window"""
+        self.window.Close()
+    
+    def populate_sheets(self):
+        self.list_sheets.Items.Clear()
+        filter_text = (self.txt_sheet_filter.Text or "").lower()
+        
+        self.sheet_data = []
+        for s in self.all_sheets:
+            text = "{} - {}".format(s['sheet_number'], s['sheet_name'])
+            if not filter_text or filter_text in text.lower():
+                self.list_sheets.Items.Add(text)
+                self.sheet_data.append(s)
+        
+        self.update_count()
+    
+    def OnFilterChanged(self, s, e):
+        self.populate_sheets()
+    
+    def OnSelectionChanged(self, s, e):
+        self.update_count()
+    
+    def update_count(self):
+        sel = self.list_sheets.SelectedItems.Count
+        total = self.list_sheets.Items.Count
+        self.txt_count.Text = "{} / {} selected".format(sel, total)
+    
+    def SelectAll(self, s, e):
+        for i in range(self.list_sheets.Items.Count):
+            self.list_sheets.SelectedItems.Add(self.list_sheets.Items[i])
+    
+    def ClearAll(self, s, e):
+        self.list_sheets.SelectedItems.Clear()
+    
+    def ClearFields(self, s, e):
+        self.txt_drawn_by.Text = ""
+        self.txt_checked_by.Text = ""
+        self.txt_designed_by.Text = ""
+        self.txt_approved_by.Text = ""
+        self.txt_project_number.Text = ""
+        self.txt_project_name.Text = ""
+        self.date_picker.SelectedDate = None
+    
+    def Update(self, s, e):
+        indices = [self.list_sheets.Items.IndexOf(i) for i in self.list_sheets.SelectedItems]
+        
+        if not indices:
+            forms.alert("Please select at least one sheet", title="Error")
             return
         
-        self.selected_sheets = [self.sheet_data[i] for i in checked_indices]
+        selected = [self.sheet_data[i] for i in indices]
         
-        # Get parameter values
-        params_to_update = {}
+        params = {}
+        if self.txt_drawn_by.Text.strip():
+            params['Drawn By'] = self.txt_drawn_by.Text.strip()
+        if self.txt_checked_by.Text.strip():
+            params['Checked By'] = self.txt_checked_by.Text.strip()
+        if self.txt_designed_by.Text.strip():
+            params['Designed By'] = self.txt_designed_by.Text.strip()
+        if self.txt_approved_by.Text.strip():
+            params['Approved By'] = self.txt_approved_by.Text.strip()
+        if self.txt_project_number.Text.strip():
+            params['Project Number'] = self.txt_project_number.Text.strip()
+        if self.txt_project_name.Text.strip():
+            params['Project Name'] = self.txt_project_name.Text.strip()
+        if self.date_picker.SelectedDate:
+            params['Sheet Issue Date'] = self.date_picker.SelectedDate.ToString("MM/dd/yyyy")
         
-        drawn_by = self.drawn_by_textbox.Text.strip()
-        if drawn_by:
-            params_to_update['Drawn By'] = drawn_by
-        
-        checked_by = self.checked_by_textbox.Text.strip()
-        if checked_by:
-            params_to_update['Checked By'] = checked_by
-        
-        designed_by = self.designed_by_textbox.Text.strip()
-        if designed_by:
-            params_to_update['Designed By'] = designed_by
-        
-        approved_by = self.approved_by_textbox.Text.strip()
-        if approved_by:
-            params_to_update['Approved By'] = approved_by
-        
-        project_number = self.project_number_textbox.Text.strip()
-        if project_number:
-            params_to_update['Project Number'] = project_number
-        
-        # Issue date - always include if changed from default
-        issue_date = self.issue_date_picker.Value.ToString("MM/dd/yyyy")
-        params_to_update['Sheet Issue Date'] = issue_date
-        
-        if len(params_to_update) == 0:
-            forms.alert("Please fill in at least one parameter to update", title="Validation Error")
+        if not params:
+            forms.alert("Please fill in at least one parameter", title="Error")
             return
         
-        # Confirm
-        param_list = "\n".join(["- {}: {}".format(k, v) for k, v in params_to_update.items()])
-        confirm_msg = "Update {} sheet(s) with:\n\n{}\n\nContinue?".format(
-            len(self.selected_sheets),
-            param_list
-        )
-        
-        if not forms.alert(confirm_msg, yes=True, no=True):
+        msg = "Update {} sheets with {} parameters?".format(len(selected), len(params))
+        if not forms.alert(msg, yes=True, no=True):
             return
         
-        # Update UI
-        self.update_btn.Enabled = False
-        self.update_btn.Text = "UPDATING..."
+        self.btn_update.IsEnabled = False
+        self.btn_update.Content = "UPDATING..."
         
-        success_count = 0
-        error_count = 0
+        success = 0
+        errors = 0
         
-        with revit.Transaction("Update Title Blocks"):
-            for sheet_data in self.selected_sheets:
+        t = Transaction(doc, "Update Title Blocks")
+        t.Start()
+        
+        try:
+            for sd in selected:
                 try:
-                    titleblock = sheet_data['titleblock']
-                    sheet_number = sheet_data['sheet_number']
-                    
-                    updated_params = []
-                    failed_params = []
-                    
-                    for param_name, param_value in params_to_update.items():
-                        param = self.GetParameterValue(titleblock, param_name)
+                    updated = []
+                    for pname, pvalue in params.items():
+                        param = sd['titleblock'].LookupParameter(pname)
+                        if not param:
+                            param = sd['sheet'].LookupParameter(pname)
                         
-                        if param:
+                        if param and not param.IsReadOnly:
                             try:
-                                param.Set(param_value)
-                                updated_params.append(param_name)
+                                param.Set(pvalue)
+                                updated.append(pname)
                             except:
-                                failed_params.append(param_name)
-                        else:
-                            # Try on sheet if not on titleblock
-                            sheet_param = self.GetParameterValue(sheet_data['sheet'], param_name)
-                            if sheet_param:
-                                try:
-                                    sheet_param.Set(param_value)
-                                    updated_params.append(param_name)
-                                except:
-                                    failed_params.append(param_name)
-                            else:
-                                failed_params.append(param_name)
+                                pass
                     
-                    if updated_params:
-                        success_count += 1
-                        output.print_md("✓ {} - Updated: {}".format(
-                            sheet_number,
-                            ", ".join(updated_params)
-                        ))
-                        if failed_params:
-                            output.print_md("  ⚠ Not found/read-only: {}".format(
-                                ", ".join(failed_params)
-                            ))
+                    if updated:
+                        success += 1
+                        output.print_md("✓ {} - {}".format(sd['sheet_number'], ", ".join(updated)))
                     else:
-                        error_count += 1
-                        output.print_md("✗ {} - No parameters updated".format(sheet_number))
-                
-                except Exception as e:
-                    error_count += 1
-                    output.print_md("✗ {} - Error: {}".format(
-                        sheet_data['sheet_number'],
-                        str(e)
-                    ))
+                        errors += 1
+                except:
+                    errors += 1
+            
+            t.Commit()
+        except:
+            t.RollBack()
         
-        # Summary
-        msg = "Title block update complete!\n\n"
-        msg += "Sheets Updated: {}\n".format(success_count)
-        msg += "Errors: {}".format(error_count)
-        
-        forms.alert(msg, title="Complete")
+        forms.alert("Complete!\n\nSuccess: {}\nErrors: {}".format(success, errors), title="Done")
         
         self.result = True
-        self.Close()
+        self.btn_update.IsEnabled = True
+        self.btn_update.Content = "Update Sheets"
 
 
 # ==============================================================================
-# SHOW FORM
+# MAIN
 # ==============================================================================
 
-form = TitleBlockBatchUpdate(all_sheets, doc)
-form.ShowDialog()
-
-if form.result:
-    output.print_md("### ✅ Title Blocks Updated Successfully")
-else:
-    output.print_md("### Operation Cancelled")
+try:
+    all_sheets = get_all_sheets_with_titleblocks()
+    
+    if not all_sheets:
+        forms.alert('No sheets with title blocks found', exitscript=True)
+    
+    output.print_md("**Found {} sheets**".format(len(all_sheets)))
+    
+    window = TitleBlockWindow(all_sheets, doc)
+    window.show()
+    
+    if window.result:
+        output.print_md("### ✅ Complete")
+    else:
+        output.print_md("### Cancelled")
+        
+except Exception as e:
+    output.print_md("**ERROR: {}**".format(str(e)))
+    import traceback
+    output.print_md("```\n{}\n```".format(traceback.format_exc()))
