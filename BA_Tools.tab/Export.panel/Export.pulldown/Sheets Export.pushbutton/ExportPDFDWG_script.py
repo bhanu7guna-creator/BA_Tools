@@ -195,7 +195,8 @@ class ExportPDFDWGWindow(Window):
             "Sheet Number Only",
             "Sheet Number - Sheet Name",
             "Sheet Name - Sheet Number",
-            "Sheet Number_Sheet Name"
+            "Sheet Number_Sheet Name",
+            "Project Number-Sheet Number_Revision"
         ]
         for option in naming_options:
             self.cmbPDFNaming.Items.Add(option)
@@ -346,23 +347,68 @@ class ExportPDFDWGWindow(Window):
         """Generate filename based on naming format"""
         sheet_num = sheet.SheetNumber
         sheet_name = sheet.Name
-        
+
+        # Get project number
+        project_num = ""
+        try:
+            project_info = FilteredElementCollector(self.doc)\
+                .OfCategory(BuiltInCategory.OST_ProjectInformation)\
+                .FirstElement()
+            if project_info:
+                project_num_param = project_info.LookupParameter("Project Number")
+                if project_num_param and project_num_param.HasValue:
+                    project_num = project_num_param.AsString()
+        except:
+            pass
+
+        # Get revision information
+        revision = ""
+        try:
+            # Try to get the current revision from the sheet
+            current_revision_param = sheet.LookupParameter("Current Revision")
+            if current_revision_param and current_revision_param.HasValue:
+                revision_value = current_revision_param.AsString()
+                if revision_value:
+                    # Extract only the last digit from revision (e.g., "00" -> "0", "01" -> "1", "03" -> "3")
+                    import re
+                    digits = re.findall(r'\d', revision_value)
+                    if digits:
+                        revision = "_R{}".format(digits[-1])
+
+            # Alternative: try "Sheet Issue Date" or "Revision Number" parameters
+            if not revision:
+                revision_param = sheet.LookupParameter("Revision Number")
+                if revision_param and revision_param.HasValue:
+                    revision_value = revision_param.AsString()
+                    if revision_value:
+                        # Extract only the last digit from revision
+                        import re
+                        digits = re.findall(r'\d', revision_value)
+                        if digits:
+                            revision = "_R{}".format(digits[-1])
+        except:
+            pass  # If revision lookup fails, continue without it
+
         # Remove invalid filename characters
         invalid_chars = '<>:"/\\|?*'
         for char in invalid_chars:
             sheet_num = sheet_num.replace(char, '_')
             sheet_name = sheet_name.replace(char, '_')
-        
+            project_num = project_num.replace(char, '_')
+            revision = revision.replace(char, '_')
+
         if naming_format == "Sheet Number Only":
-            return sheet_num
+            return "{}{}".format(sheet_num, revision)
         elif naming_format == "Sheet Number - Sheet Name":
-            return "{} - {}".format(sheet_num, sheet_name)
+            return "{} - {}{}".format(sheet_num, sheet_name, revision)
         elif naming_format == "Sheet Name - Sheet Number":
-            return "{} - {}".format(sheet_name, sheet_num)
+            return "{} - {}{}".format(sheet_name, sheet_num, revision)
         elif naming_format == "Sheet Number_Sheet Name":
-            return "{}_{}".format(sheet_num, sheet_name)
+            return "{}_{}{}".format(sheet_num, sheet_name, revision)
+        elif naming_format == "Project Number-Sheet Number_Revision":
+            return "{}-{}{}".format(project_num, sheet_num, revision)
         else:
-            return sheet_num
+            return "{}{}".format(sheet_num, revision)
     
     def UpdateNamingPreview(self, sender, args):
         """Update file naming preview"""
