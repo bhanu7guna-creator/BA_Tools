@@ -1,8 +1,8 @@
 layout:
-  - Workset	
+  - Workset
+  - Project Location
   - Annotate
   - Parameter Value
-  - Project Location
   - Assembly
   - Revision
   - Title Block
