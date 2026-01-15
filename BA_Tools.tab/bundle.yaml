@@ -1,6 +1,7 @@
 layout:
   - Workset
   - Project Location
+  - Structural
   - Annotate
   - Parameter Value
   - Assembly
