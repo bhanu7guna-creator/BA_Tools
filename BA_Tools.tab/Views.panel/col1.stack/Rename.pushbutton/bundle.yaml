@@ -1,48 +1,46 @@
 title: "View Title Replacer"
 tooltip: |
+  Version = 1.0
+  Date    = 16.01.2026
 
-Version = 1.0
-Date    = 16.01.2026
+  __________________________________
+  Description:
 
-____________________________________
-Description:
+  Replace View Titles on Sheets using flexible naming options.
 
-Replace View Titles on Sheets
-using flexible naming options.
+  Allows you to:
+  - Select views placed on sheets
+  - Replace view titles in bulk
 
-Allows you to:
-- Select views placed on sheets
-- Replace view titles in bulk
+  Supports:
+  - Find and Replace text
+  - Apply current view names
+  - Add Sheet Number as suffix
+  - Add Custom Prefix
+  - Add Custom Suffix
 
-Supports:
-- Find and Replace text
-- Apply current view names
-- Add Sheet Number as suffix
-- Add Custom Prefix
-- Add Custom Suffix
+  Works only on:
+  - Views placed on sheets
+  - Existing viewports
 
-Works only on:
-- Views placed on sheets
-- Existing viewports
+  ____________________________________
+  How-to:
 
-____________________________________
-How-to:
+  -> Click on the button
+  -> Select Views (from list)
+  -> Choose Rename Method:
+     • Find & Replace
+     • Use Correct View Name
+     • Add Sheet Number Suffix
+     • Add Custom Prefix / Suffix
+  -> Apply Changes
 
--> Click on the button
--> Select Views (from list)
--> Choose Rename Method:
-   • Find & Replace
-   • Use Correct View Name
-   • Add Sheet Number Suffix
-   • Add Custom Prefix / Suffix
--> Apply Changes
+  ____________________________________
+  Last update:
+  - [16.01.2026] - 1.0 RELEASE
 
-____________________________________
-Last update:
-- [16.01.2026] - 1.0 RELEASE
+  ____________________________________
+ 
 
-____________________________________
-Author: Bhanu Prakash A
-
-Bundle Name:
-View Title Replacer (pushbutton)
+author: Bhanu Prakash A
+context: doc-project

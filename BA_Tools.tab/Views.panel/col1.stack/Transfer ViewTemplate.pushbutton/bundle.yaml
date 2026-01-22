@@ -1,42 +1,44 @@
 title: "Transfer ViewTemplates"
 tooltip: |
 
-Version = 1.0
-Date    = 16.01.2026
+  Version = 1.0
+  Date    = 16.01.2026
 
-____________________________________
-Description:
+  ____________________________________
+  Description:
 
-Transfer View Templates between
-two open Revit projects.
+  Transfer View Templates between
+  two open Revit projects.
 
-Allows selection of:
-- Source project
-- Target project
-- View Templates to transfer
+  Allows selection of:
+  - Source project
+  - Target project
+  - View Templates to transfer
 
-If a View Template with the same
-name exists in the target project:
-- Option to override, OR
-- Duplicate with a numbered suffix
+  If a View Template with the same
+  name exists in the target project:
+  - Option to override, OR
+  - Duplicate with a numbered suffix
 
-____________________________________
-How-to:
+  ____________________________________
+  How-to:
 
--> Click on the button
--> Select Source Project
--> Select Target Project
--> Select View Templates
--> Choose Override or Duplicate
--> Click Transfer
+  -> Click on the button
+  -> Select Source Project
+  -> Select Target Project
+  -> Select View Templates
+  -> Choose Override or Duplicate
+  -> Click Transfer
 
-____________________________________
-Last update:
-- [16.01.2026] - 1.0 RELEASE
+  ____________________________________
+  Last update:
+  - [16.01.2026] - 1.0 RELEASE
 
-____________________________________
-Author: Bhanu Prakash A
+  ____________________________________
+
+author: Bhanu Prakash A
+context: doc-project
 
 Bundle Name:
-ViewTemplate Transfer (pushbutton)
+  ViewTemplate Transfer (pushbutton)
 

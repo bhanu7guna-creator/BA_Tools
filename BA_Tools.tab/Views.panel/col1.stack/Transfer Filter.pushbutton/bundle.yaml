@@ -1,46 +1,48 @@
 title: "Transfer Filters"
 tooltip: |
 
-Version = 1.0
-Date    = 16.01.2026
+  Version = 1.0
+  Date    = 16.01.2026
 
-____________________________________
-Description:
+  ____________________________________
+  Description:
 
-Transfer View Filters between
-two open Revit projects.
+  Transfer View Filters between
+  two open Revit projects.
 
-Allows selection of:
-- Source project
-- Target project
-- Filters to transfer
+  Allows selection of:
+  - Source project
+  - Target project
+  - Filters to transfer
 
-If a filter with the same name
-exists in the target project:
-- Option to override, OR
-- Duplicate with a numbered suffix
+  If a filter with the same name
+  exists in the target project:
+  - Option to override, OR
+  - Duplicate with a numbered suffix
 
-Supports:
-- Parameter-based filters
-- Rule-based filters
-- Category assignments
+  Supports:
+  - Parameter-based filters
+  - Rule-based filters
+  - Category assignments
 
-____________________________________
-How-to:
+  ____________________________________
+  How-to:
 
--> Click on the button
--> Select Source Project
--> Select Target Project
--> Select Filters
--> Choose Override or Duplicate
--> Click Transfer
+  -> Click on the button
+  -> Select Source Project
+  -> Select Target Project
+  -> Select Filters
+  -> Choose Override or Duplicate
+  -> Click Transfer
 
-____________________________________
-Last update:
-- [16.01.2026] - 1.0 RELEASE
+  ____________________________________
+  Last update:
+  - [16.01.2026] - 1.0 RELEASE
 
-____________________________________
-Author: Bhanu Prakash A
+  ____________________________________
+
+author: Bhanu Prakash A
+context: doc-project
 
 Bundle Name:
-Transfer Filters (pushbutton)
+  Transfer Filters (pushbutton) 

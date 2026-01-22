@@ -1,34 +1,37 @@
 title: "DWG & PDF Export"
 tooltip: |
   
-Version = 1.0
-Date    = 16.01.2026
+  Version = 1.0
+  Date    = 16.01.2026
 
-____________________________________
-Description:
+  ____________________________________
+  Description:
 
-Export selected sheets to DWG and PDF.
-Supports batch export using predefined
-export and print settings.
+  Export selected sheets to DWG and PDF.
+  Supports batch export using predefined
+  export and print settings.
 
-Output folders are created automatically.
-Press "Esc" to cancel the process.
+  Output folders are created automatically.
+  Press "Esc" to cancel the process.
 
-____________________________________
-How-to:
+  ____________________________________
+  How-to:
 
--> Click on the button
--> Select sheets (or use current selection)
--> Choose export settings
--> Choose output location
--> Click Export
+  -> Click on the button
+  -> Select sheets (or use current selection)
+  -> Choose export settings
+  -> Choose output location
+  -> Click Export
 
-____________________________________
-Last update:
-- [16.01.2026] - 1.0 RELEASE
+  ____________________________________
+  Last update:
+  - [16.01.2026] - 1.0 RELEASE
 
-____________________________________
-Author: Bhanu Prakash A
+  ____________________________________
+
+author: Bhanu Prakash A
+context: doc-project
+
 
 Bundle Name:
 Sheets Export (pushbutton)
