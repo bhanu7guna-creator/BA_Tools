@@ -5,7 +5,7 @@ tooltip:
   Date    = 16.01.2026
 
   ____________________________________
-  Description:
+  Description
 
   Export Selected 3D views to NWC
   (Navisworks Cache) format.
@@ -19,14 +19,14 @@ tooltip:
   Press "Esc" to cancel the process.
 
   ____________________________________
-  How-to:
+  How-to
 
   -> Click on the button
   -> Select export location
   -> Script exports selected 3D views
 
   ____________________________________
-  Last update:
+  Last update
   - [16.01.2026] - 1.0 RELEASE
 
   ____________________________________
@@ -35,4 +35,4 @@ context: doc-project
 
 
 Bundle Name:
-NWC Export (pushbutton)
+  NWC Export (pushbutton)
