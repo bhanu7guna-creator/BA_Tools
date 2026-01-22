@@ -1,47 +1,47 @@
 title: "Origin"
 tooltip: |
 
-Version = 1.0
-Date    = 16.01.2026
+  Version = 1.0
+  Date    = 16.01.2026
 
-____________________________________
-Description:
+  ____________________________________
+  Description:
 
-Align Assembly Origin so that
-Erection Mark families face
-the correct wall direction.
+  Align Assembly Origin so that
+  Erection Mark families face
+  the correct wall direction.
 
 
-Automatically:
-- Detects primary wall direction
-- Rotates Assembly Origin
-- Ensures erection mark
-  faces along wall length
-- Does NOT move or rotate
-  the wall or assembly geometry
+  Automatically:
+  - Detects primary wall direction
+  - Rotates Assembly Origin
+  - Ensures erection mark
+    faces along wall length
+  - Does NOT move or rotate
+    the wall or assembly geometry
 
-Used for:
-- Precast erection marks
-- Assembly identification
-- Shop drawing consistency
+  Used for:
+  - Precast erection marks
+  - Assembly identification
+  - Shop drawing consistency
 
-____________________________________
-How-to:
+  ____________________________________
+  How-to:
 
--> Click on the button
--> Select Assembly Instance(s)
--> Tool reads wall direction
--> Assembly origin rotates
--> Erection mark faces
-   correct wall direction
+  -> Click on the button
+  -> Select Assembly Instance(s)
+  -> Tool reads wall direction
+  -> Assembly origin rotates
+  -> Erection mark faces
+    correct wall direction
 
-____________________________________
-Last update:
-- [16.01.2026] - 1.0 RELEASE
+  ____________________________________
+  Last update:
+  - [16.01.2026] - 1.0 RELEASE
 
-____________________________________
-Author: Bhanu Prakash A
+  ____________________________________
+author: Bhanu Prakash A
 
 Bundle Name:
-Assembly Origin
-(pushbutton)
+  Assembly Origin
+  (pushbutton)
