@@ -1,7 +1,41 @@
-title: "Structural"
+title: "Toggle Wall Structural"
+
 tooltip: |
-  Toggle Structural Parameter for wall.
+  Version = 1.0
+  Date    = 16.01.2026
 
-  Press "Esc" to finalize the process
+  __________________________________
+  Description:
 
-  Author: Bhanu Prakash A
+  Toggle the "Structural" parameter
+  for selected wall elements.
+
+  Allows you to:
+  - Set walls as Structural
+  - Set walls as Non-Structural
+  - Quickly switch between states
+
+  Works only on:
+  - Basic and Stacked Walls
+  - Wall instances in the active project
+
+  __________________________________
+  How-to:
+
+  -> Click on the button
+  -> Select wall elements
+  -> Choose:
+     • Structural = ON
+     • Structural = OFF
+  -> Apply changes
+
+  __________________________________
+  Last update:
+  - [16.01.2026] - 1.0 RELEASE
+
+  __________________________________
+Bundle Name:
+  Toggle Structural (pushbutton)
+
+author: Bhanu Prakash A
+context: doc-project

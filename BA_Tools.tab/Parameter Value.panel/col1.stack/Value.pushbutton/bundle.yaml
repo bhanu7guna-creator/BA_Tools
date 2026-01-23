@@ -1,7 +1,39 @@
-title: "Mark\nValue"
+title: "Value Mark"
 tooltip: |
-  Assign Mark values using Revit API Script only for walls.
+  Version = 1.0
+  Date    = 16.01.2026
+  _________________________________
+  Description:
 
-  Press "Esc" to finalize the process
+  Updates the "Mark" parameter for
+  selected elements based on user-
+  defined category, level, and type.
 
-  Author: Bhanu Prakash A
+  This tool allows you to:
+  - Select an Element Category
+  - Select a Level
+  - Select a Family/Type
+  - Enter the required Mark value
+
+  The tool will:
+  - Collect all matching elements
+  - Assign the given value to the
+    "Mark" parameter
+  - Apply changes in bulk
+  __________________________________
+  How-to:
+  -> Click on the button
+  -> Choose Category
+  -> Choose Level
+  -> Choose Type
+  -> Enter Mark value
+  -> Apply changes
+  __________________________________
+  Last update:
+  - [16.01.2026] - 1.0 RELEASE
+  __________________________________
+Bundle Name:
+  Update Mark (pushbutton)
+
+author: Bhanu Prakash A
+context: doc-project

@@ -1,7 +1,50 @@
 title: "Create"
 tooltip: |
-  Create wall Assemblies.
+  Version = 1.0
+  Date    = 16.01.2026
 
-  Press "Esc" to finalize the process
+  __________________________________
+  Description:
+
+  Automatically creates Revit Assemblies
+  based on Wall "Comments" values.
+
+  This tool:
+  - Collects walls by selected Section
+  - Groups walls using the Comments parameter
+  - Selects all walls with the same comment
+  - Finds all hosted elements:
+    • Doors
+    • Windows
+    • Face-based families
+    • Cut elements
+  - Creates an Assembly for each group
+  - Names the Assembly using the comment value
+
+  Ensures:
+  - All related elements stay together
+  - Consistent assembly naming
+  - Faster prefab / shop drawing setup
+
+  Works only on:
+  - Wall elements with Comments filled
+  - Sections containing valid wall data
+
+  __________________________________
+  How-to:
+
+  -> Click on the button
+  -> Select a Section View
+  -> Tool reads Wall Comments
+  -> Assemblies are created automatically
+
+  __________________________________
+  Last update:
+  - [16.01.2026] - 1.0 RELEASE
+
+  __________________________________
+Bundle Name:
+  Create Assembly (pushbutton)
 
 author: Bhanu Prakash A
+context: doc-project

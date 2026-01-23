@@ -1,7 +1,41 @@
-title: "Comments\nValue"
+title: "Value Comments"
 tooltip: |
-  Assign Comments values using Revit API script only for walls.
+  Version = 1.0
+  Date    = 16.01.2026
+  __________________________________
+  Description:
 
-  Press "Esc" to finalize the process
+  Updates the "Comments" parameter for
+  selected elements based on user-
+  defined category, level, and type.
 
-  Author: Bhanu Prakash A
+  This tool allows you to:
+  - Select an Element Category
+  - Select a Level
+  - Select a Family/Type
+  - Enter the required Comment value
+
+  The tool will:
+  - Collect all matching elements
+  - Assign the given value to the
+    "Comments" parameter
+  - Apply changes in bulk
+  __________________________________
+  How-to:
+
+  -> Click on the button
+  -> Choose Category
+  -> Choose Level
+  -> Choose Type
+  -> Enter Comment value 
+  -> Apply changes
+  __________________________________
+  Last update:
+  - [16.01.2026] - 1.0 RELEASE
+
+  __________________________________
+Bundle Name:
+  Comments Value (pushbutton)
+
+author: Bhanu Prakash A
+context: doc-project

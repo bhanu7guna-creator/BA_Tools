@@ -58,14 +58,14 @@
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="FontFamily" Value="Segoe UI"/>
             <Setter Property="FontSize" Value="12"/>
-            <Setter Property="Height" Value="28"/>
+            <Setter Property="Height" Value="30"/>
         </Style>
 
         <!-- TextBlock Style -->
         <Style x:Key="LabelText" TargetType="TextBlock">
             <Setter Property="Foreground" Value="#B0B0C0"/>
             <Setter Property="FontFamily" Value="Segoe UI"/>
-            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontSize" Value="12"/>
             <Setter Property="Margin" Value="0,0,0,8"/>
         </Style>
     </Window.Resources>
@@ -115,15 +115,16 @@
                         Content="CLOSE" 
                         Width="70" 
                         Height="32"
-                        FontSize="11"
+                        FontSize="12"
                         Style="{StaticResource SecondaryButton}"/>
             </Grid>
         </Border>
 
         <!-- MAIN CONTENT -->
-        <Border Grid.Row="1" Background="#1E1E28" Margin="20,20,20,0" 
-                CornerRadius="3" BorderBrush="#1976D2" BorderThickness="1" Padding="25">
-            <StackPanel>
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="20,20,20,0">
+            <Border Background="#1E1E28" 
+                    CornerRadius="3" BorderBrush="#1976D2" BorderThickness="1" Padding="25">
+                <StackPanel>
                 <!-- Line Type Selection -->
                 <TextBlock Text="1. Select Line Type:" Style="{StaticResource LabelText}"/>
                 <ComboBox x:Name="cmbLineType" 
@@ -140,13 +141,49 @@
                 <TextBlock Text="3. Select Base Level (From):" Style="{StaticResource LabelText}"/>
                 <ComboBox x:Name="cmbBaseLevel" 
                         Style="{StaticResource DarkComboBox}"
-                        Margin="0,0,0,25"/>
+                        Margin="0,0,0,10"/>
+                
+                <!-- Base Offset -->
+                <TextBlock Text="   Base Offset (ft):" 
+                         Foreground="#B0B0C0"
+                         FontFamily="Segoe UI"
+                         FontSize="11"
+                         Margin="0,0,0,5"/>
+                <TextBox x:Name="txtBaseOffset"
+                       Text="0"
+                       Background="White"
+                       Foreground="Black"
+                       BorderBrush="#1976D2"
+                       BorderThickness="1"
+                       FontFamily="Segoe UI"
+                       FontSize="12"
+                       Padding="5"
+                       Height="30"
+                       Margin="0,0,0,25"/>
 
                 <!-- Top Level Selection -->
                 <TextBlock Text="4. Select Top Level (To):" Style="{StaticResource LabelText}"/>
                 <ComboBox x:Name="cmbTopLevel" 
                         Style="{StaticResource DarkComboBox}"
-                        Margin="0,0,0,25"/>
+                        Margin="0,0,0,10"/>
+                
+                <!-- Top Offset -->
+                <TextBlock Text="   Top Offset (ft):" 
+                         Foreground="#B0B0C0"
+                         FontFamily="Segoe UI"
+                         FontSize="11"
+                         Margin="0,0,0,5"/>
+                <TextBox x:Name="txtTopOffset"
+                       Text="0"
+                       Background="White"
+                       Foreground="Black"
+                       BorderBrush="#1976D2"
+                       BorderThickness="1"
+                       FontFamily="Segoe UI"
+                       FontSize="12"
+                       Padding="5"
+                       Height="30"
+                       Margin="0,0,0,25"/>
 
                 <!-- Wall Location Line -->
                 <TextBlock Text="5. Wall Location Line:" Style="{StaticResource LabelText}"/>
@@ -173,7 +210,7 @@
                                 Content="Split wall at intervals"
                                 Foreground="#DCDCDC"
                                 FontFamily="Segoe UI"
-                                FontSize="11"
+                                FontSize="12"
                                 Margin="0,0,0,10"/>
                         
                         <Grid>
@@ -190,7 +227,7 @@
                             <TextBlock Grid.Column="0"
                                      Text="Interval:"
                                      Foreground="#B0B0C0"
-                                     FontSize="11"
+                                     FontSize="12"
                                      VerticalAlignment="Center"
                                      IsEnabled="{Binding ElementName=chkSplitWall, Path=IsChecked}"/>
                             
@@ -202,7 +239,7 @@
                                    BorderBrush="#1976D2"
                                    BorderThickness="1"
                                    FontFamily="Segoe UI"
-                                   FontSize="11"
+                                   FontSize="12"
                                    Padding="5"
                                    Height="28"
                                    IsEnabled="{Binding ElementName=chkSplitWall, Path=IsChecked}"/>
@@ -210,7 +247,7 @@
                             <TextBlock Grid.Column="4"
                                      Text="'"
                                      Foreground="#B0B0C0"
-                                     FontSize="11"
+                                     FontSize="12"
                                      FontWeight="Bold"
                                      VerticalAlignment="Center"
                                      IsEnabled="{Binding ElementName=chkSplitWall, Path=IsChecked}"/>
@@ -223,7 +260,7 @@
                                    BorderBrush="#1976D2"
                                    BorderThickness="1"
                                    FontFamily="Segoe UI"
-                                   FontSize="11"
+                                   FontSize="12"
                                    Padding="5"
                                    Height="28"
                                    IsEnabled="{Binding ElementName=chkSplitWall, Path=IsChecked}"/>
@@ -241,7 +278,7 @@
                             <TextBlock Grid.Column="0"
                                      Text="Joint Gap:"
                                      Foreground="#B0B0C0"
-                                     FontSize="11"
+                                     FontSize="12"
                                      VerticalAlignment="Center"
                                      IsEnabled="{Binding ElementName=chkSplitWall, Path=IsChecked}"/>
                             
@@ -253,7 +290,7 @@
                                    BorderBrush="#1976D2"
                                    BorderThickness="1"
                                    FontFamily="Segoe UI"
-                                   FontSize="11"
+                                   FontSize="12"
                                    Padding="5"
                                    Height="28"
                                    IsEnabled="{Binding ElementName=chkSplitWall, Path=IsChecked}"/>
@@ -261,7 +298,7 @@
                             <TextBlock Grid.Column="4"
                                      Text='inches (")'
                                      Foreground="#B0B0C0"
-                                     FontSize="11"
+                                     FontSize="12"
                                      VerticalAlignment="Center"
                                      IsEnabled="{Binding ElementName=chkSplitWall, Path=IsChecked}"/>
                         </Grid>
@@ -301,8 +338,9 @@
                         </TextBlock>
                     </StackPanel>
                 </Border>
-            </StackPanel>
-        </Border>
+                </StackPanel>
+            </Border>
+        </ScrollViewer>
 
         <!-- FOOTER -->
         <Border Grid.Row="2" Background="#1E1E28" BorderBrush="#1976D2" BorderThickness="0,2,0,0">
@@ -326,7 +364,8 @@
                         Content="CREATE WALLS" 
                         Width="180" 
                         Height="40"
-                        Style="{StaticResource PrimaryButton}"/>
+                        Style="{StaticResource PrimaryButton}"
+                        ToolTip="Click to start wall creation. You will then select lines in Revit to create walls from."/>
             </Grid>
         </Border>
 

@@ -36,7 +36,8 @@ output = script.get_output()
 # ==============================================================================
 
 def CreateWallFromLine(line_element, wall_type_id, base_level_id, top_level_id, 
-                      wall_location, split_enabled, interval_ft, joint_gap_ft, doc):
+                      base_offset_ft, top_offset_ft, wall_location, split_enabled, 
+                      interval_ft, joint_gap_ft, doc):
     """
     Create wall from line (no splitting here - handled at higher level)
     """
@@ -54,13 +55,13 @@ def CreateWallFromLine(line_element, wall_type_id, base_level_id, top_level_id,
         if not base_level or not top_level:
             return [], "Invalid levels"
         
-        # Calculate height
-        base_elevation = base_level.Elevation
-        top_elevation = top_level.Elevation
+        # Calculate height (including offsets)
+        base_elevation = base_level.Elevation + base_offset_ft
+        top_elevation = top_level.Elevation + top_offset_ft
         wall_height = top_elevation - base_elevation
         
         if wall_height <= 0:
-            return [], "Top level must be higher than base level"
+            return [], "Top level + offset must be higher than base level + offset"
         
         # Get wall location line value
         location_line_map = {
@@ -76,7 +77,7 @@ def CreateWallFromLine(line_element, wall_type_id, base_level_id, top_level_id,
         flip_wall = "Interior" in wall_location
         
         # Create the wall
-        wall = Wall.Create(doc, location_curve, wall_type_id, base_level_id, wall_height, 0, flip_wall, False)
+        wall = Wall.Create(doc, location_curve, wall_type_id, base_level_id, wall_height, base_offset_ft, flip_wall, False)
         
         if not wall:
             return [], "Wall creation failed"
@@ -90,6 +91,11 @@ def CreateWallFromLine(line_element, wall_type_id, base_level_id, top_level_id,
         top_constraint_param = wall.get_Parameter(BuiltInParameter.WALL_HEIGHT_TYPE)
         if top_constraint_param and not top_constraint_param.IsReadOnly:
             top_constraint_param.Set(top_level_id)
+        
+        # Set top offset
+        top_offset_param = wall.get_Parameter(BuiltInParameter.WALL_TOP_OFFSET)
+        if top_offset_param and not top_offset_param.IsReadOnly:
+            top_offset_param.Set(top_offset_ft)
         
         return [wall], "Success"
         
@@ -143,7 +149,9 @@ class WallFromLineWindow(Window):
         self.cmbLineType = self._window.FindName("cmbLineType")
         self.cmbWallType = self._window.FindName("cmbWallType")
         self.cmbBaseLevel = self._window.FindName("cmbBaseLevel")
+        self.txtBaseOffset = self._window.FindName("txtBaseOffset")
         self.cmbTopLevel = self._window.FindName("cmbTopLevel")
+        self.txtTopOffset = self._window.FindName("txtTopOffset")
         self.cmbWallLocation = self._window.FindName("cmbWallLocation")
         self.chkSplitWall = self._window.FindName("chkSplitWall")
         self.txtIntervalFeet = self._window.FindName("txtIntervalFeet")
@@ -246,6 +254,20 @@ class WallFromLineWindow(Window):
         wall_location = str(self.cmbWallLocation.SelectedItem.Content)
         split_enabled = self.chkSplitWall.IsChecked == True
         
+        # Get base offset
+        try:
+            base_offset_ft = float(self.txtBaseOffset.Text)
+        except:
+            TaskDialog.Show("Error", "Invalid base offset value")
+            return
+        
+        # Get top offset
+        try:
+            top_offset_ft = float(self.txtTopOffset.Text)
+        except:
+            TaskDialog.Show("Error", "Invalid top offset value")
+            return
+        
         interval_ft = 0.0
         joint_gap_ft = 0.0
         
@@ -298,8 +320,8 @@ class WallFromLineWindow(Window):
             output.print_md("# Wall from Line")
             output.print_md("**Line Type**: {}".format(line_type_name))
             output.print_md("**Wall Type**: {}".format(wall_type_name))
-            output.print_md("**Base Level**: {}".format(base_level_name))
-            output.print_md("**Top Level**: {}".format(top_level_name))
+            output.print_md("**Base Level**: {} (Offset: {:.2f} ft)".format(base_level_name, base_offset_ft))
+            output.print_md("**Top Level**: {} (Offset: {:.2f} ft)".format(top_level_name, top_offset_ft))
             output.print_md("**Wall Location**: {}".format(wall_location))
             if split_enabled:
                 # Convert back to feet and inches for display
@@ -336,7 +358,8 @@ class WallFromLineWindow(Window):
                     line_element = doc.GetElement(ref.ElementId)
                     # Create wall WITHOUT splitting
                     walls, msg = CreateWallFromLine(line_element, wall_type_id, base_level_id, top_level_id,
-                                                   wall_location, False, interval_ft, joint_gap_ft, doc)
+                                                   base_offset_ft, top_offset_ft, wall_location, 
+                                                   False, interval_ft, joint_gap_ft, doc)
                     if walls and len(walls) > 0:
                         created_walls_map[line_element.Id] = walls
                         output.print_md("✅ Wall created from line {}".format(line_element.Id))
@@ -438,7 +461,7 @@ class WallFromLineWindow(Window):
                                             seg_curve = Line.CreateBound(seg_start, seg_end)
                                             
                                             seg_wall = Wall.Create(doc, seg_curve, wall_type_id, base_level_id,
-                                                                 wall_height_param, 0, "Interior" in wall_location, False)
+                                                                 wall_height_param, base_offset_ft, "Interior" in wall_location, False)
                                             
                                             if seg_wall:
                                                 # Copy parameters
@@ -448,6 +471,9 @@ class WallFromLineWindow(Window):
                                                 top_param = seg_wall.get_Parameter(BuiltInParameter.WALL_HEIGHT_TYPE)
                                                 if top_param and not top_param.IsReadOnly:
                                                     top_param.Set(top_level_id)
+                                                top_offset_param = seg_wall.get_Parameter(BuiltInParameter.WALL_TOP_OFFSET)
+                                                if top_offset_param and not top_offset_param.IsReadOnly:
+                                                    top_offset_param.Set(top_offset_ft)
                                                 
                                                 # Disallow wall joins at gap ends
                                                 WallUtils.DisallowWallJoinAtEnd(seg_wall, 1)  # End
@@ -480,7 +506,7 @@ class WallFromLineWindow(Window):
                                                 seg_curve = Line.CreateBound(seg_start, seg_end)
                                             
                                             seg_wall = Wall.Create(doc, seg_curve, wall_type_id, base_level_id,
-                                                                 wall_height_param, 0, "Interior" in wall_location, False)
+                                                                 wall_height_param, base_offset_ft, "Interior" in wall_location, False)
                                             
                                             if seg_wall:
                                                 loc_param = seg_wall.get_Parameter(BuiltInParameter.WALL_KEY_REF_PARAM)
@@ -489,6 +515,9 @@ class WallFromLineWindow(Window):
                                                 top_param = seg_wall.get_Parameter(BuiltInParameter.WALL_HEIGHT_TYPE)
                                                 if top_param and not top_param.IsReadOnly:
                                                     top_param.Set(top_level_id)
+                                                top_offset_param = seg_wall.get_Parameter(BuiltInParameter.WALL_TOP_OFFSET)
+                                                if top_offset_param and not top_offset_param.IsReadOnly:
+                                                    top_offset_param.Set(top_offset_ft)
                                                 
                                                 WallUtils.DisallowWallJoinAtEnd(seg_wall, 1)
                                                 if idx > 0 or prev_distance > 0:
@@ -513,7 +542,7 @@ class WallFromLineWindow(Window):
                                             seg_curve = Line.CreateBound(seg_start, seg_end)
                                             
                                             seg_wall = Wall.Create(doc, seg_curve, wall_type_id, base_level_id,
-                                                                 wall_height_param, 0, "Interior" in wall_location, False)
+                                                                 wall_height_param, base_offset_ft, "Interior" in wall_location, False)
                                             
                                             if seg_wall:
                                                 loc_param = seg_wall.get_Parameter(BuiltInParameter.WALL_KEY_REF_PARAM)
@@ -522,6 +551,9 @@ class WallFromLineWindow(Window):
                                                 top_param = seg_wall.get_Parameter(BuiltInParameter.WALL_HEIGHT_TYPE)
                                                 if top_param and not top_param.IsReadOnly:
                                                     top_param.Set(top_level_id)
+                                                top_offset_param = seg_wall.get_Parameter(BuiltInParameter.WALL_TOP_OFFSET)
+                                                if top_offset_param and not top_offset_param.IsReadOnly:
+                                                    top_offset_param.Set(top_offset_ft)
                                                 
                                                 WallUtils.DisallowWallJoinAtEnd(seg_wall, 0)
                                                 
@@ -545,7 +577,7 @@ class WallFromLineWindow(Window):
                                                 seg_curve = Line.CreateBound(seg_start, seg_end)
                                             
                                             seg_wall = Wall.Create(doc, seg_curve, wall_type_id, base_level_id,
-                                                                 wall_height_param, 0, "Interior" in wall_location, False)
+                                                                 wall_height_param, base_offset_ft, "Interior" in wall_location, False)
                                             
                                             if seg_wall:
                                                 loc_param = seg_wall.get_Parameter(BuiltInParameter.WALL_KEY_REF_PARAM)
@@ -554,6 +586,9 @@ class WallFromLineWindow(Window):
                                                 top_param = seg_wall.get_Parameter(BuiltInParameter.WALL_HEIGHT_TYPE)
                                                 if top_param and not top_param.IsReadOnly:
                                                     top_param.Set(top_level_id)
+                                                top_offset_param = seg_wall.get_Parameter(BuiltInParameter.WALL_TOP_OFFSET)
+                                                if top_offset_param and not top_offset_param.IsReadOnly:
+                                                    top_offset_param.Set(top_offset_ft)
                                                 
                                                 WallUtils.DisallowWallJoinAtEnd(seg_wall, 0)
                                                 
@@ -593,7 +628,7 @@ class WallFromLineWindow(Window):
             output.print_md("**Walls Created**: {}".format(total_walls))
             output.print_md("**Failed**: {}".format(failed))
             
-            TaskDialog.Show("Complete", "Created {} walls with proper gaps".format(total_walls))
+            TaskDialog.Show("Complete", "Created {} walls".format(total_walls))
             
         except Exception as e:
             output.print_md("❌ Error: {}".format(str(e)))
