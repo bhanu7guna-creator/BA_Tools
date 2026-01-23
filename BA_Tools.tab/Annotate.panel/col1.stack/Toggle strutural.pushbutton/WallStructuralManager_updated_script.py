@@ -12,6 +12,7 @@ from Autodesk.Revit.UI import *
 from System.Windows.Markup import XamlReader
 from System.IO import StreamReader
 from System.Collections.ObjectModel import ObservableCollection
+import System
 import os
 
 doc = __revit__.ActiveUIDocument.Document
@@ -53,6 +54,7 @@ class WallStructuralWindow:
         stream.Close()
         
         # Get controls
+        self.imgLogo = self.ui.FindName("imgLogo")
         self.stats_text = self.ui.FindName("StatsText")
         self.filter_combo = self.ui.FindName("FilterCombo")
         self.search_box = self.ui.FindName("SearchBox")
@@ -63,11 +65,33 @@ class WallStructuralWindow:
         self.make_non_structural_btn = self.ui.FindName("MakeNonStructuralBtn")
         self.close_btn = self.ui.FindName("CloseBtn")
         
+        # Load logo
+        self.LoadLogo(script_dir)
+        
         # Setup filter combo
         self.filter_combo.Items.Add("All Walls")
         self.filter_combo.Items.Add("Structural Only")
         self.filter_combo.Items.Add("Non-Structural Only")
         self.filter_combo.SelectedIndex = 0
+    
+    def LoadLogo(self, script_dir):
+        """Load BA logo"""
+        try:
+            import System.Windows.Media.Imaging as Imaging
+            
+            logo_path = os.path.join(script_dir, "BA_logo.png")
+            if not os.path.exists(logo_path):
+                logo_path = os.path.join(script_dir, "icon.png")
+            
+            if os.path.exists(logo_path):
+                bitmap = Imaging.BitmapImage()
+                bitmap.BeginInit()
+                bitmap.UriSource = System.Uri(logo_path)
+                bitmap.CacheOption = Imaging.BitmapCacheOption.OnLoad
+                bitmap.EndInit()
+                self.imgLogo.Source = bitmap
+        except:
+            pass
         
     def LoadWalls(self):
         collector = FilteredElementCollector(doc)\
