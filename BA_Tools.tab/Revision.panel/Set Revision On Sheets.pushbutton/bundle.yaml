@@ -1,7 +1,29 @@
-title: "Revision\nsheet"
+title: "Revisions"
 tooltip: |
-  Create Revision on sheets.
+  Version = 1.0
+  Date    = 23.01.2026
+  __________________________________
+  Description:
 
-  Press "Esc" to finalize the process
+  Allows you to manage sheet revisions in your Revit project. 
+  You can apply or remove revisions on multiple sheets efficiently.
 
-  Author: Bhanu Prakash A
+  This tool allows you to:
+  - Select which revision(s) to apply
+  - Choose sheets to update
+  - Apply or remove revisions at once
+  __________________________________
+  How-to:
+  -> Click on the button
+  -> Select the revision(s) you want to apply or remove
+  -> Select the sheets to update
+  -> Click Apply or Remove
+  -> Revisions are updated on the selected sheets
+  __________________________________
+  Last update:
+  - [23.01.2026] - 1.0 RELEASE
+  __________________________________
+Bundle Name:
+  Revision Manager (pushbutton)
+author: Bhanu Prakash A
+context: doc-project

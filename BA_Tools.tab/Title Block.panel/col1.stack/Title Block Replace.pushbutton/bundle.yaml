@@ -1,7 +1,28 @@
 title: "Replace"
 tooltip: |
-  Replace Title Block on Sheets.
+  Version = 1.0
+  Date    = 23.01.2026
+  __________________________________
+  Description:
 
-  Press "Esc" to finalize the process
+  Allows you to replace title blocks on multiple sheets in your Revit project quickly.
 
-  Author: Bhanu Prakash A
+  This tool allows you to:
+  - Select the new title block type
+  - Choose sheets to update
+  - Replace title blocks on all selected sheets at once
+  __________________________________
+  How-to:
+  -> Click on the button
+  -> Select the new title block type
+  -> Select the sheets where the title block needs to be replaced
+  -> Click Apply
+  -> Title blocks are updated on the selected sheets
+  __________________________________
+  Last update:
+  - [23.01.2026] - 1.0 RELEASE
+  __________________________________
+Bundle Name:
+  Title Block Replace (pushbutton)
+author: Bhanu Prakash A
+context: doc-project

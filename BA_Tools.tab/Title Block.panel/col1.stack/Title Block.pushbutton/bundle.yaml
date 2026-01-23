@@ -1,7 +1,28 @@
 title: "Updates"
 tooltip: |
-  Replace Title Block on Sheets using Revit API.
+  Version = 1.0
+  Date    = 23.01.2026
+  __________________________________
+  Description:
 
-  Press "Esc" to finalize the process
+  Allows you to update title block information on multiple sheets in your Revit project at once.
 
-  Author: Bhanu Prakash A
+  This tool allows you to:
+  - Update fields like Drawn By, Designed By, Checked By, Date, and other parameters
+  - Select sheets to apply changes
+  - Update details on all selected sheets simultaneously
+  __________________________________
+  How-to:
+  -> Click on the button
+  -> Enter the new title block details
+  -> Select the sheets to update
+  -> Click Apply
+  -> Title block details are updated on all selected sheets
+  __________________________________
+  Last update:
+  - [23.01.2026] - 1.0 RELEASE
+  __________________________________
+Bundle Name:
+  Update Title Block Details (pushbutton)
+author: Bhanu Prakash A
+context: doc-project
