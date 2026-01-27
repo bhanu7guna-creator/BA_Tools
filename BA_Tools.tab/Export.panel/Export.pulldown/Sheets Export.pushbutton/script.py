@@ -196,7 +196,8 @@ class ExportPDFDWGWindow(Window):
             "Sheet Number - Sheet Name",
             "Sheet Name - Sheet Number",
             "Sheet Number_Sheet Name",
-            "Sheet Number-Sheet Name_Revision"
+            "Sheet Number-Sheet Name_Revision",
+            "Project Number-Sheet Number_Revision"
         ]
         for option in naming_options:
             self.cmbPDFNaming.Items.Add(option)
@@ -407,6 +408,11 @@ class ExportPDFDWGWindow(Window):
             return "{}_{}{}".format(sheet_num, sheet_name, revision)
         elif naming_format == "Sheet Number-Sheet Name_Revision":
             return "{}-{}{}".format(sheet_num, sheet_name, revision)
+        elif naming_format == "Project Number-Sheet Number_Revision":
+            if project_num:
+                return "{}-{}{}".format(project_num, sheet_num, revision)
+            else:
+                return "{}{}".format(sheet_num, revision)
         else:
             return "{}{}".format(sheet_num, revision)
     
