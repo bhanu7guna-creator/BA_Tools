@@ -266,7 +266,7 @@ class TitleBlockUpdateWindow(Window):
             params['Project Name'] = self.txtProjectName.Text.strip()
         
         if self.datePicker.SelectedDate:
-            date_value = self.datePicker.SelectedDate.ToString("MM/dd/yyyy")
+            date_value = self.datePicker.SelectedDate.ToString("dd-MM-yyyy")
             params['Sheet Issue Date'] = date_value
         
         if not params:
@@ -349,11 +349,9 @@ class TitleBlockUpdateWindow(Window):
         output.print_md("**Errors**: {}".format(error_count))
         
         self.result = True
-        self.btnUpdate.IsEnabled = True
-        self.btnUpdate.Content = "UPDATE SHEETS"
-        self.txtStatus.Text = "Update complete! Success: {}, Errors: {}".format(
-            success_count, error_count
-        )
+        
+        # Close window after successful update
+        self._window.Close()
     
     def ShowDialog(self):
         """Show dialog"""
