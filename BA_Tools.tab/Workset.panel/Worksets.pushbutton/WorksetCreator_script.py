@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-Workset Creator - WPF Modern UI
-Create multiple worksets from predefined list
+Workset Creator
+Create multiple worksets from predefined list or custom names
 """
 __title__ = 'Create\nWorksets'
-__doc__ = 'Create multiple worksets from predefined list'
+__doc__ = 'Create worksets from predefined list or custom names'
 
 import clr
 import os
@@ -31,22 +31,45 @@ output = script.get_output()
 # ==============================================================================
 
 WORKSETS = [
-    "AR-Civil Works-GF", "AR-Civil Works-FF",
-    "LINK-CAD-ST", "LINK-RVT-AR", "LINK-RVT-EL",
-    "LINK-RVT-GN", "LINK-RVT-ID", "LINK-RVT-LA",
-    "LINK-RVT-ME", "LINK-RVT-PL", "LINK-RVT-ST",
-    "ST-Beam-FF", "ST-Beam-RF",
-    "ST-BLOCK WALL-FF", "ST-BLOCK WALL-GF", "ST-BLOCK WALL-PA",
-    "ST-CIP-FF", "ST-CIP-RF",
-    "ST-Column-FF", "ST-Column-GF",
-    "ST-Erection Mark-FF", "ST-Erection Mark-GF", "ST-Erection Mark-RF",
+    "AR-Civil Works-GF",
+    "AR-Civil Works-FF",
+    "LINK-CAD-ST",
+    "LINK-RVT-AR",
+    "LINK-RVT-EL",
+    "LINK-RVT-GN",
+    "LINK-RVT-ID",
+    "LINK-RVT-LA",
+    "LINK-RVT-ME",
+    "LINK-RVT-PL",
+    "LINK-RVT-ST",
+    "ST-Beam-FF",
+    "ST-Beam-RF",
+    "ST-BLOCK WALL-FF",
+    "ST-BLOCK WALL-GF",
+    "ST-BLOCK WALL-PA",
+    "ST-CIP-FF",
+    "ST-CIP-RF",
+    "ST-Column-FF",
+    "ST-Column-GF",
+    "ST-Erection Mark-FF",
+    "ST-Erection Mark-GF",
+    "ST-Erection Mark-RF",
     "ST-Foundation",
-    "ST-Hollowcore-FF", "ST-Hollowcore-RF",
-    "ST-Reveals-FF", "ST-Reveals-GF", "ST-Reveals-RF",
-    "ST-SLAB-FF", "ST-SLAB-GF", "ST-SLAB-RF",
-    "ST-STAIR-FF", "ST-STAIR-GF",
-    "ST-Stru Opngs-FF", "ST-Stru Opngs-RF",
-    "ST-WALL-FF", "ST-WALL-GF", "ST-WALL-RF"
+    "ST-Hollowcore-FF",
+    "ST-Hollowcore-RF",
+    "ST-Reveals-FF",
+    "ST-Reveals-GF",
+    "ST-Reveals-RF",
+    "ST-SLAB-FF",
+    "ST-SLAB-GF",
+    "ST-SLAB-RF",
+    "ST-STAIR-FF",
+    "ST-STAIR-GF",
+    "ST-Stru Opngs-FF",
+    "ST-Stru Opngs-RF",
+    "ST-WALL-FF",
+    "ST-WALL-GF",
+    "ST-WALL-RF"
 ]
 
 
@@ -114,7 +137,7 @@ output.print_md("**Available to create**: {}".format(len(available_worksets)))
 # ==============================================================================
 
 class WorksetCreatorWindow(Window):
-    def __init__(self, xaml_path, available_worksets, existing_count, document):
+    def __init__(self, xaml_path, available_worksets, existing_count, document, existing_workset_names):
         # Load XAML
         stream = StreamReader(xaml_path)
         self._window = XamlReader.Load(stream.BaseStream)
@@ -123,6 +146,7 @@ class WorksetCreatorWindow(Window):
         # Data
         self.available_worksets = available_worksets
         self.existing_count = existing_count
+        self.existing_workset_names = existing_workset_names
         self.workset_items = ObservableCollection[WorksetItem]()
         self.doc = document
         self.result = False
@@ -141,6 +165,10 @@ class WorksetCreatorWindow(Window):
         self.btnCancel = self._window.FindName("btnCancel")
         self.btnCreate = self._window.FindName("btnCreate")
         
+        # Custom workset input controls
+        self.txtCustomWorkset = self._window.FindName("txtCustomWorkset")
+        self.btnAddCustom = self._window.FindName("btnAddCustom")
+        
         # Initialize
         self.InitializeData()
         self.SetupEventHandlers()
@@ -148,18 +176,15 @@ class WorksetCreatorWindow(Window):
     def InitializeData(self):
         """Initialize workset items"""
         # Update counts
-        self.txtExistingCount.Text = "Existing: {} worksets".format(self.existing_count)
-        self.txtAvailableCount.Text = "Available to create: {} worksets".format(len(self.available_worksets))
+        self.txtExistingCount.Text = str(self.existing_count)
+        self.txtAvailableCount.Text = str(len(self.available_worksets))
         
         # Check if no worksets available
         if not self.available_worksets:
-            self.lstWorksets.Visibility = System.Windows.Visibility.Collapsed
             self.borderNoWorksets.Visibility = System.Windows.Visibility.Visible
-            self.btnCreate.IsEnabled = False
-            self.btnSelectAll.IsEnabled = False
-            self.btnClearAll.IsEnabled = False
-            self.txtStatus.Text = "All worksets already exist"
-            return
+            self.txtStatus.Text = "All predefined worksets exist - Use custom input to add more"
+        else:
+            self.borderNoWorksets.Visibility = System.Windows.Visibility.Collapsed
         
         # Populate workset items
         for workset_name in sorted(self.available_worksets):
@@ -177,15 +202,15 @@ class WorksetCreatorWindow(Window):
         self.btnClearAll.Click += self.OnClearAll
         self.btnCancel.Click += self.OnCancel
         self.btnCreate.Click += self.OnCreate
+        self.btnAddCustom.Click += self.OnAddCustomWorkset
+        self.txtCustomWorkset.KeyDown += self.OnCustomWorksetKeyDown
     
     def OnClose(self, sender, args):
         """Close window"""
-        self._window.DialogResult = False
         self._window.Close()
     
     def OnCancel(self, sender, args):
         """Cancel and close"""
-        self._window.DialogResult = False
         self._window.Close()
     
     def OnSelectAll(self, sender, args):
@@ -208,13 +233,59 @@ class WorksetCreatorWindow(Window):
         """Update selected count label"""
         selected_count = sum(1 for item in self.workset_items if item.IsSelected)
         total_count = len(self.workset_items)
-        self.txtSelectedCount.Text = "{} / {} selected".format(selected_count, total_count)
+        self.txtSelectedCount.Text = "{} / {}".format(selected_count, total_count)
         
         # Update status
         if selected_count == 0:
-            self.txtStatus.Text = "Select worksets to create"
+            self.txtStatus.Text = "Select worksets or add custom names to begin"
         else:
             self.txtStatus.Text = "Ready to create {} workset(s)".format(selected_count)
+    
+    def OnCustomWorksetKeyDown(self, sender, args):
+        """Handle Enter key in custom workset textbox"""
+        if args.Key == System.Windows.Input.Key.Return:
+            self.OnAddCustomWorkset(sender, args)
+    
+    def OnAddCustomWorkset(self, sender, args):
+        """Add custom workset to the list"""
+        custom_name = self.txtCustomWorkset.Text.strip()
+        
+        if not custom_name:
+            forms.alert("Please enter a workset name", title="Validation Error")
+            return
+        
+        # Check if already exists in project
+        if custom_name in self.existing_workset_names:
+            forms.alert("Workset '{}' already exists in the project".format(custom_name), 
+                       title="Already Exists")
+            return
+        
+        # Check if already in the list
+        existing_in_list = [item for item in self.workset_items if item.WorksetName == custom_name]
+        if existing_in_list:
+            forms.alert("Workset '{}' is already in the list".format(custom_name), 
+                       title="Already in List")
+            return
+        
+        # Add to list
+        workset_item = WorksetItem(custom_name)
+        workset_item.IsSelected = True
+        workset_item.PropertyChanged += self.OnWorksetSelectionChanged
+        self.workset_items.Add(workset_item)
+        
+        # Clear textbox
+        self.txtCustomWorkset.Text = ""
+        
+        # Update UI
+        if self.borderNoWorksets.Visibility == System.Windows.Visibility.Visible:
+            self.borderNoWorksets.Visibility = System.Windows.Visibility.Collapsed
+        
+        self.UpdateSelectedCount()
+        
+        # Focus back to textbox
+        self.txtCustomWorkset.Focus()
+        
+        output.print_md("Added custom workset to list: **{}**".format(custom_name))
     
     def OnCreate(self, sender, args):
         """Create selected worksets"""
@@ -222,18 +293,23 @@ class WorksetCreatorWindow(Window):
         selected_items = [item for item in self.workset_items if item.IsSelected]
         
         if not selected_items:
-            forms.alert("Please select at least one workset", title="Validation Error")
+            forms.alert("Please select at least one workset or add a custom workset", 
+                       title="Validation Error")
             return
         
         self.selected_worksets = [item.WorksetName for item in selected_items]
         
         # Confirm
         confirm_msg = "Create {} workset(s)?\n\n".format(len(self.selected_worksets))
-        confirm_msg += "Worksets:\n"
-        for i, ws in enumerate(self.selected_worksets[:5]):
-            confirm_msg += "• {}\n".format(ws)
-        if len(self.selected_worksets) > 5:
-            confirm_msg += "• ... and {} more\n".format(len(self.selected_worksets) - 5)
+        if len(self.selected_worksets) <= 10:
+            confirm_msg += "Worksets:\n"
+            for ws in self.selected_worksets:
+                confirm_msg += "• {}\n".format(ws)
+        else:
+            confirm_msg += "First 10 worksets:\n"
+            for ws in self.selected_worksets[:10]:
+                confirm_msg += "• {}\n".format(ws)
+            confirm_msg += "• ... and {} more\n".format(len(self.selected_worksets) - 10)
         
         if not forms.alert(confirm_msg, yes=True, no=True, title="Confirm Creation"):
             return
@@ -246,26 +322,30 @@ class WorksetCreatorWindow(Window):
         success_count = 0
         error_count = 0
         
+        output.print_md("\n### Creating Worksets")
+        output.print_md("---")
+        
         # Create worksets
         with revit.Transaction("Create Worksets"):
             for workset_name in self.selected_worksets:
                 try:
                     Workset.Create(self.doc, workset_name)
                     success_count += 1
-                    output.print_md("✓ Created: {}".format(workset_name))
+                    output.print_md("✓ Created: **{}**".format(workset_name))
                 except Exception as e:
                     error_count += 1
-                    output.print_md("✗ Failed: {} - {}".format(workset_name, str(e)))
+                    output.print_md("✗ Failed: **{}** - {}".format(workset_name, str(e)))
         
         # Summary
         summary_msg = "Workset creation complete!\n\n"
-        summary_msg += "Success: {}\n".format(success_count)
-        summary_msg += "Errors: {}\n\n".format(error_count)
-        summary_msg += "Check output window for details."
+        summary_msg += "✓ Success: {}\n".format(success_count)
+        if error_count > 0:
+            summary_msg += "✗ Errors: {}\n".format(error_count)
+        summary_msg += "\nCheck output window for details."
         
         forms.alert(summary_msg, title="Complete")
         
-        output.print_md("### ✅ Workset Creation Complete")
+        output.print_md("\n### ✅ Workset Creation Complete")
         output.print_md("**Success**: {}".format(success_count))
         output.print_md("**Errors**: {}".format(error_count))
         
@@ -294,10 +374,10 @@ if not os.path.exists(xaml_path):
     )
 
 # Show window
-window = WorksetCreatorWindow(xaml_path, available_worksets, len(existing_worksets), doc)
+window = WorksetCreatorWindow(xaml_path, available_worksets, len(existing_worksets), doc, existing_worksets)
 window.ShowDialog()
 
 if window.result:
     output.print_md("### ✅ Worksets Created Successfully")
 else:
-    output.print_md("### Operation Cancelled or Closed")
+    output.print_md("### Operation Cancelled")
